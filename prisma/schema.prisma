@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(uuid())
+  phoneNumber String   @unique
+  fullName    String
+  email       String   @unique
+  businessName String?
+  businessDescription String? @db.Text
+  city        String
+  state       String
+  pinCode     String
+  isVerified  Boolean  @default(false)
+  role        Role     @default(USER)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  otpAttempts Int      @default(0)
+  lastOtpSentAt DateTime?
+  rentals     Rental[]
+  postedRequirements      Requirement[]   @relation("PostedRequirements")
+  assignedRequirements    Requirement[]   @relation("AssignedRequirements")
+}
+
+model CarType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  cars        Car[]
+}
+
+model Car {
+  id          String   @id @default(uuid())
+  brand       String
+  model       String
+  year        Int
+  color       String
+  licensePlate String  @unique
+  isAvailable Boolean  @default(true)
+  carTypeId   String
+  carType     CarType  @relation(fields: [carTypeId], references: [id])
+  rentals     Rental[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Rental {
+  id          String      @id @default(uuid())
+  startDate   DateTime
+  endDate     DateTime
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      RentalStatus @default(PENDING)
+  userId      String
+  carId       String
+  user        User        @relation(fields: [userId], references: [id])
+  car         Car         @relation(fields: [carId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model OtpVerification {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  sessionId   String
+  purpose     OtpPurpose
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+  verified    Boolean  @default(false)
+
+  @@index([phoneNumber])
+  @@index([sessionId])
+}
+
+enum RequirementStatus {
+  CREATED
+  CONFIRMED
+  ASSIGNED
+}
+
+model Requirement {
+  id            String     @id @default(uuid())
+  fromCity      String
+  toCity        String
+  pickupDate    DateTime
+  pickupTime    String
+  carType       String
+  tripType      String
+  budget        Float?
+  onlyVerified  Boolean    @default(false)
+  comment       String?
+  postedById    String
+  postedBy      User       @relation("PostedRequirements", fields: [postedById], references: [id])
+  assignedToId  String?
+  assignedTo    User?      @relation("AssignedRequirements", fields: [assignedToId], references: [id])
+  status        RequirementStatus @default(CREATED)
+  isDeleted     Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RentalStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum OtpPurpose {
+  REGISTRATION
+  LOGIN
+  RESET_PASSWORD
+}
