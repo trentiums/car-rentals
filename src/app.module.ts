@@ -10,12 +10,13 @@ import { CitiesModule } from './cities/cities.module';
 import { RequirementController } from './requirement/requirement.controller';
 import { RequirementService } from './requirement/requirement.service';
 import { RequirementModule } from './requirement/requirement.module';
+import { DocumentsModule } from './documents/documents.module';
 
 @Module({
-  imports: [ ConfigModule.forRoot({
-    isGlobal: true,  
-  }),PrismaModule, CitiesModule, OtpModule, AuthModule, CarTypesModule, RequirementModule],
+  imports: [ConfigModule.forRoot({
+    isGlobal: true,
+  }), PrismaModule, CitiesModule, OtpModule, AuthModule, CarTypesModule, RequirementModule, DocumentsModule],
   controllers: [AppController, RequirementController],
   providers: [AppService, RequirementService],
 })
-export class AppModule {}
+export class AppModule { }

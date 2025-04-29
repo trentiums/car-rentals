@@ -16,13 +16,14 @@ import {
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { AssignRequirementDto, ConfirmRequirementDto } from './dto/confirm-requirement.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
 
 @ApiBearerAuth()
 @ApiTags('requirement')
 @UseGuards(JwtAuthGuard)
 @Controller('requirement')
 export class RequirementController {
-  constructor(private readonly service: RequirementService) {}
+  constructor(private readonly service: RequirementService) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new requirement' })
@@ -44,11 +45,23 @@ export class RequirementController {
   @ApiOperation({ summary: 'Assign a requirement to a user' })
   @ApiResponse({ status: 200, description: 'Requirement assigned successfully' })
   @ApiResponse({ status: 400, description: 'Invalid assignment request' })
-  assign(@Body() dto: AssignRequirementDto , @Req() req) {
-    if(!req.user.id){
+  assign(@Body() dto: AssignRequirementDto, @Req() req) {
+    if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
     return this.service.assignRequirement(dto, req.user.id);
+  }
+
+  @Post('return')
+  @ApiOperation({ summary: 'Create a return trip requirement based on an existing one-way trip' })
+  @ApiResponse({ status: 201, description: 'Return trip requirement created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
+  @ApiResponse({ status: 404, description: 'Original requirement not found' })
+  createReturnTrip(@Body() dto: CreateReturnRequirementDto, @Req() req) {
+    if (!req.user.id) {
+      throw new UnauthorizedException('User not logged in');
+    }
+    return this.service.createReturnRequirement(dto, req.user.id);
   }
 
   @Delete(':id')

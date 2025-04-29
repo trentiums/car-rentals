@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RoleGuard } from './guards/role.guard';
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     OtpService,
     JwtAuthGuard,
     ConfigService,
-    JwtService
+    JwtService,
+    RoleGuard
   ],
   exports: [
     AuthService,
@@ -44,7 +46,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     JwtStrategy,
     OtpService,
     JwtModule,
-    JwtAuthGuard
+    JwtAuthGuard,
+    RoleGuard
   ]
 })
-export class AuthModule {}
+export class AuthModule { }

@@ -27,6 +27,7 @@ model User {
   rentals     Rental[]
   postedRequirements      Requirement[]   @relation("PostedRequirements")
   assignedRequirements    Requirement[]   @relation("AssignedRequirements")
+  documents   UserDocument[]
 }
 
 model CarType {
@@ -106,9 +107,9 @@ model Requirement {
   isDeleted     Boolean    @default(false)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+  returnTripId  String?    // ID of the original trip if this is a return trip
+  isReturnTrip  Boolean    @default(false) // Flag to indicate if this is a return trip
 }
-
-
 
 enum Role {
   USER
@@ -126,4 +127,34 @@ enum OtpPurpose {
   REGISTRATION
   LOGIN
   RESET_PASSWORD
+}
+
+enum DocumentType {
+  AADHAR_FRONT
+  AADHAR_BACK
+  DRIVING_LICENSE_FRONT
+  DRIVING_LICENSE_BACK
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model UserDocument {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  documentType DocumentType
+  documentUrl String
+  status      DocumentStatus @default(PENDING)
+  rejectionReason String?
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
