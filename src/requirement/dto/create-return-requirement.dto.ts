@@ -1,32 +1,54 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsDate, IsBoolean, IsOptional, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsDate,
+  IsBoolean,
+  IsOptional,
+  IsNumber,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateReturnRequirementDto {
-    @ApiProperty()
-    @IsString()
-    originalRequirementId: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  originalRequirementId?: string;
 
-    @ApiProperty({ type: String, format: 'date-time' })
-    @IsDate()
-    @Type(() => Date)
-    returnPickupDate: Date;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  fromCity?: string;
 
-    @ApiProperty()
-    @IsString()
-    returnPickupTime: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  toCity?: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    returnBudget?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  carType?: string;
 
-    @ApiProperty()
-    @IsBoolean()
-    onlyVerified: boolean;
+  @ApiProperty({ type: String, format: 'date-time' })
+  @IsDate()
+  @Type(() => Date)
+  returnPickupDate: Date;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    comment?: string;
-} 
+  @ApiProperty()
+  @IsString()
+  returnPickupTime: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  returnBudget?: number;
+
+  @ApiProperty()
+  @IsBoolean()
+  onlyVerified: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  comment?: string;
+}

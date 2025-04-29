@@ -11,12 +11,27 @@ import { RequirementController } from './requirement/requirement.controller';
 import { RequirementService } from './requirement/requirement.service';
 import { RequirementModule } from './requirement/requirement.module';
 import { DocumentsModule } from './documents/documents.module';
+import { SubscriptionModule } from './subscription/subscription.module';
+import { BusinessCitiesModule } from './business-cities/business-cities.module';
+import { PostsModule } from './posts/posts.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({
-    isGlobal: true,
-  }), PrismaModule, CitiesModule, OtpModule, AuthModule, CarTypesModule, RequirementModule, DocumentsModule],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    PrismaModule,
+    CitiesModule,
+    OtpModule,
+    AuthModule,
+    CarTypesModule,
+    RequirementModule,
+    DocumentsModule,
+    SubscriptionModule,
+    BusinessCitiesModule,
+    PostsModule,
+  ],
   controllers: [AppController, RequirementController],
   providers: [AppService, RequirementService],
 })
-export class AppModule { }
+export class AppModule {}

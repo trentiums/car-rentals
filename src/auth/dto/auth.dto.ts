@@ -1,4 +1,10 @@
-import { IsString, IsEmail, Length, Matches, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsEmail,
+  Length,
+  Matches,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ResendOtpDto {
@@ -23,6 +29,11 @@ export class RegisterDto {
   @ApiProperty({ example: 'johndoe@example.com' })
   @IsEmail()
   email: string;
+
+  @ApiProperty({ example: 'password123' })
+  @IsString()
+  @Length(6, 100)
+  password: string;
 
   @ApiProperty({ example: 'My Business Name' })
   @IsOptional()
@@ -77,4 +88,3 @@ export class VerifyOtpForAuthDto {
   @Matches(/^[0-9]+$/, { message: 'OTP must contain only digits' })
   otp: string;
 }
-

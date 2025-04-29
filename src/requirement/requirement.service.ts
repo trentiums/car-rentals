@@ -1,14 +1,19 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
 import {
-  CreateRequirementDto,
-} from './dto/create.requirement.dto';
-import { AssignRequirementDto, ConfirmRequirementDto } from './dto/confirm-requirement.dto';
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateRequirementDto } from './dto/create.requirement.dto';
+import {
+  AssignRequirementDto,
+  ConfirmRequirementDto,
+} from './dto/confirm-requirement.dto';
 import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
 
 @Injectable()
 export class RequirementService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async createRequirement(dto: CreateRequirementDto, userId: string) {
     const carType = await this.prisma.carType.findFirst({
@@ -80,7 +85,9 @@ export class RequirementService {
     }
 
     if (currentUser.phoneNumber === dto.phoneNumber) {
-      throw new BadRequestException('You cannot assign the requirement to yourself');
+      throw new BadRequestException(
+        'You cannot assign the requirement to yourself',
+      );
     }
 
     return this.prisma.requirement.update({
@@ -91,7 +98,6 @@ export class RequirementService {
       },
     });
   }
-
 
   async deleteRequirement(id: string) {
     const requirement = await this.prisma.requirement.findUnique({
@@ -137,46 +143,90 @@ export class RequirementService {
     });
   }
 
-  async createReturnRequirement(dto: CreateReturnRequirementDto, userId: string) {
-    // Find the original requirement
-    const originalRequirement = await this.prisma.requirement.findUnique({
-      where: { id: dto.originalRequirementId },
-    });
+  async createReturnRequirement(
+    dto: CreateReturnRequirementDto,
+    userId: string,
+  ) {
+    // If originalRequirementId is provided, create return trip based on it
+    if (dto.originalRequirementId) {
+      const originalRequirement = await this.prisma.requirement.findUnique({
+        where: { id: dto.originalRequirementId },
+      });
 
-    if (!originalRequirement || originalRequirement.isDeleted) {
-      throw new NotFoundException('Original requirement not found');
+      if (!originalRequirement || originalRequirement.isDeleted) {
+        throw new NotFoundException('Original requirement not found');
+      }
+
+      if (originalRequirement.postedById !== userId) {
+        throw new BadRequestException(
+          'You can only create return trips for your own requirements',
+        );
+      }
+
+      if (originalRequirement.tripType !== 'ONEWAY') {
+        throw new BadRequestException(
+          'Can only create return trips for one-way journeys',
+        );
+      }
+
+      if (originalRequirement.isReturnTrip) {
+        throw new BadRequestException(
+          'Cannot create a return trip for another return trip',
+        );
+      }
+
+      // Create the return requirement based on original trip
+      return this.prisma.requirement.create({
+        data: {
+          postedById: userId,
+          fromCity: originalRequirement.toCity, // Swap cities for return trip
+          toCity: originalRequirement.fromCity,
+          pickupDate: dto.returnPickupDate,
+          pickupTime: dto.returnPickupTime,
+          carType: originalRequirement.carType,
+          tripType: 'ONEWAY',
+          budget: dto.returnBudget,
+          onlyVerified: dto.onlyVerified,
+          comment: dto.comment,
+          isDeleted: false,
+          status: 'CREATED',
+          returnTripId: originalRequirement.id,
+          isReturnTrip: true,
+        },
+      });
+    } else {
+      // Create a new return requirement manually
+      if (!dto.fromCity || !dto.toCity || !dto.carType) {
+        throw new BadRequestException(
+          'fromCity, toCity, and carType are required for manual return trip creation',
+        );
+      }
+
+      const carType = await this.prisma.carType.findFirst({
+        where: { id: dto.carType },
+      });
+
+      if (!carType) {
+        throw new NotFoundException('Car type not found');
+      }
+
+      return this.prisma.requirement.create({
+        data: {
+          postedById: userId,
+          fromCity: dto.fromCity,
+          toCity: dto.toCity,
+          pickupDate: dto.returnPickupDate,
+          pickupTime: dto.returnPickupTime,
+          carType: dto.carType,
+          tripType: 'ONEWAY',
+          budget: dto.returnBudget,
+          onlyVerified: dto.onlyVerified,
+          comment: dto.comment,
+          isDeleted: false,
+          status: 'CREATED',
+          isReturnTrip: true,
+        },
+      });
     }
-
-    if (originalRequirement.postedById !== userId) {
-      throw new BadRequestException('You can only create return trips for your own requirements');
-    }
-
-    if (originalRequirement.tripType !== 'ONEWAY') {
-      throw new BadRequestException('Can only create return trips for one-way journeys');
-    }
-
-    if (originalRequirement.isReturnTrip) {
-      throw new BadRequestException('Cannot create a return trip for another return trip');
-    }
-
-    // Create the return requirement
-    return this.prisma.requirement.create({
-      data: {
-        postedById: userId,
-        fromCity: originalRequirement.toCity, // Swap cities for return trip
-        toCity: originalRequirement.fromCity,
-        pickupDate: dto.returnPickupDate,
-        pickupTime: dto.returnPickupTime,
-        carType: originalRequirement.carType,
-        tripType: 'ONEWAY',
-        budget: dto.returnBudget,
-        onlyVerified: dto.onlyVerified,
-        comment: dto.comment,
-        isDeleted: false,
-        status: 'CREATED',
-        returnTripId: originalRequirement.id, // Set the original trip ID
-        isReturnTrip: true, // Mark as a return trip
-      },
-    });
   }
 }
