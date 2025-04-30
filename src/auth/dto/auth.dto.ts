@@ -30,11 +30,6 @@ export class RegisterDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ example: 'password123' })
-  @IsString()
-  @Length(6, 100)
-  password: string;
-
   @ApiProperty({ example: 'My Business Name' })
   @IsOptional()
   @IsString()

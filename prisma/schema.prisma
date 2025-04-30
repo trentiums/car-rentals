@@ -12,7 +12,6 @@ model User {
   phoneNumber String   @unique
   fullName    String
   email       String   @unique
-  password    String
   businessName String?
   businessDescription String? @db.Text
   city        String
@@ -197,25 +196,31 @@ model UserBusinessCity {
   id          String   @id @default(uuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id])
-  cityId      String
-  city        City     @relation(fields: [cityId], references: [id])
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([userId, cityId])
-  @@index([userId])
-  @@index([cityId])
-}
-
-model City {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  cityName    String
   state       String
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  userBusinessCities UserBusinessCity[]
+
+  @@unique([userId, cityName, state])
+  @@index([userId])
+  @@index([cityName])
+}
+
+model City {
+  id          String   @id @default(uuid())
+  name        String
+  state       String
+  population  Int      @default(0)
+  latitude    String
+  longitude   String
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, state])
+  @@index([name])
+  @@index([state])
 }
 
 model Post {

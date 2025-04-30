@@ -10,12 +10,26 @@ import {
   ConfirmRequirementDto,
 } from './dto/confirm-requirement.dto';
 import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
+import * as dayjs from 'dayjs';
 
 @Injectable()
 export class RequirementService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createRequirement(dto: CreateRequirementDto, userId: string) {
+    const now = dayjs();
+    const pickupDate = dayjs(dto.pickupDate).startOf('day');
+    if (pickupDate.isBefore(now.startOf('day'))) {
+      throw new BadRequestException('Pickup date cannot be in the past');
+    }
+    if (pickupDate.isSame(now, 'day')) {
+      const pickupDateTime = dayjs(
+        `${pickupDate.format('YYYY-MM-DD')}T${dto.pickupTime}`,
+      );
+      if (pickupDateTime.isBefore(now)) {
+        throw new BadRequestException('Pickup time must be in the future');
+      }
+    }
     const carType = await this.prisma.carType.findFirst({
       where: { id: dto.carType },
     });
@@ -42,11 +56,18 @@ export class RequirementService {
     });
   }
 
-  async confirmRequirement(dto: ConfirmRequirementDto) {
+  async confirmRequirement(dto: ConfirmRequirementDto, userId: string) {
     const requirement = await this.prisma.requirement.findUnique({
       where: { id: dto.requirementId },
     });
 
+    if (!requirement || requirement.isDeleted) {
+      throw new NotFoundException('Requirement not found');
+    }
+
+    if (requirement.postedById !== userId) {
+      throw new BadRequestException('You cannot confirm this requirement');
+    }
     if (!requirement || requirement.isDeleted) {
       throw new NotFoundException('Requirement not found');
     }
@@ -228,5 +249,39 @@ export class RequirementService {
         },
       });
     }
+  }
+
+  async getMyRequirements(
+    userId: string,
+    status?: string,
+    fromDate?: string,
+    toDate?: string,
+  ) {
+    const filters: any = {
+      isDeleted: false,
+      OR: [{ postedById: userId }, { assignedToId: userId }],
+    };
+
+    if (status) {
+      filters.status = status.toUpperCase();
+    }
+
+    if (fromDate || toDate) {
+      filters.createdAt = {};
+      if (fromDate) {
+        filters.createdAt.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        // Add time to include the full day
+        filters.createdAt.lte = new Date(
+          new Date(toDate).setHours(23, 59, 59, 999),
+        );
+      }
+    }
+
+    return this.prisma.requirement.findMany({
+      where: filters,
+      orderBy: { createdAt: 'desc' },
+    });
   }
 }

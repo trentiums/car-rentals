@@ -8,6 +8,7 @@ import {
   Delete,
   Param,
   UnauthorizedException,
+  Query,
 } from '@nestjs/common';
 import { BusinessCitiesService } from './business-cities.service';
 import { AddBusinessCityDto } from './dto/add-business-city.dto';
@@ -30,7 +31,7 @@ export class BusinessCitiesController {
   @ApiOperation({ summary: "Add a city to user's business cities" })
   @ApiResponse({ status: 201, description: 'City added successfully' })
   @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
-  @ApiResponse({ status: 404, description: 'User or city not found' })
+  @ApiResponse({ status: 404, description: 'User not found' })
   addBusinessCity(@Body() dto: AddBusinessCityDto, @Req() req) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
@@ -38,18 +39,22 @@ export class BusinessCitiesController {
     return this.service.addBusinessCity(dto, req.user.id);
   }
 
-  @Delete(':cityId')
+  @Delete()
   @ApiOperation({ summary: "Remove a city from user's business cities" })
   @ApiResponse({ status: 200, description: 'City removed successfully' })
   @ApiResponse({
     status: 404,
-    description: 'User, city, or business city not found',
+    description: 'User or business city not found',
   })
-  removeBusinessCity(@Param('cityId') cityId: string, @Req() req) {
+  removeBusinessCity(
+    @Query('cityName') cityName: string,
+    @Query('state') state: string,
+    @Req() req,
+  ) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.removeBusinessCity(cityId, req.user.id);
+    return this.service.removeBusinessCity(cityName, state, req.user.id);
   }
 
   @Get()

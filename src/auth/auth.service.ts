@@ -1,11 +1,12 @@
-import {
-  Injectable,
-  HttpStatus,
-} from '@nestjs/common';
+import { Injectable, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
 import { JwtService } from '@nestjs/jwt';
-import { RegisterDto, InitiateLoginDto, VerifyOtpForAuthDto } from './dto/auth.dto';
+import {
+  RegisterDto,
+  InitiateLoginDto,
+  VerifyOtpForAuthDto,
+} from './dto/auth.dto';
 import { ApiResponse } from '../common/interfaces/api-response.interface';
 import { ConfigService } from '@nestjs/config';
 
@@ -18,7 +19,9 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto): Promise<ApiResponse<{ sessionId: string }>> {
+  async register(
+    registerDto: RegisterDto,
+  ): Promise<ApiResponse<{ sessionId: string }>> {
     try {
       // Check if user already exists
       const existingUser = await this.prisma.user.findFirst({
@@ -39,11 +42,24 @@ export class AuthService {
       }
 
       // Send OTP
-      const otpResponse = await this.otpService.sendOtp(registerDto.phoneNumber);
+      const otpResponse = await this.otpService.sendOtp(
+        registerDto.phoneNumber,
+      );
 
       // Create unverified user
       const user = await this.prisma.user.create({
-        data: registerDto,
+        data: {
+          phoneNumber: registerDto.phoneNumber,
+          fullName: registerDto.fullName,
+          email: registerDto.email,
+          businessName: registerDto.businessName,
+          businessDescription: registerDto.businessDescription,
+          city: registerDto.city,
+          state: registerDto.state,
+          pinCode: registerDto.pinCode,
+          isVerified: false,
+          role: 'USER',
+        },
       });
 
       // Store OTP verification record
@@ -70,11 +86,16 @@ export class AuthService {
     }
   }
 
-  async verifyRegistration(verifyDto: VerifyOtpForAuthDto): Promise<ApiResponse<{ token: string; user: any }>> {
+  async verifyRegistration(
+    verifyDto: VerifyOtpForAuthDto,
+  ): Promise<ApiResponse<{ token: string; user: any }>> {
     try {
       // Verify OTP
-      const otpVerifyResult = await this.otpService.verifyOtp(verifyDto.sessionId, verifyDto.otp);
-      
+      const otpVerifyResult = await this.otpService.verifyOtp(
+        verifyDto.sessionId,
+        verifyDto.otp,
+      );
+
       if (otpVerifyResult.Status === 'Error') {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -110,10 +131,9 @@ export class AuthService {
         data: { verified: true },
       });
 
-      // Mark user as verified
-      const user = await this.prisma.user.update({
+      // Get user with their city and state
+      const user = await this.prisma.user.findUnique({
         where: { phoneNumber: verifyDto.phoneNumber },
-        data: { isVerified: true },
       });
 
       if (!user) {
@@ -123,6 +143,22 @@ export class AuthService {
           error: 'USER_NOT_FOUND',
         };
       }
+
+      // Mark user as verified
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true },
+      });
+
+      // Add user's city as a business city
+      await this.prisma.userBusinessCity.create({
+        data: {
+          userId: user.id,
+          cityName: user.city,
+          state: user.state,
+          isActive: true,
+        },
+      });
 
       // Generate JWT token
       const token = await this.generateToken(user.id);
@@ -150,12 +186,17 @@ export class AuthService {
     }
   }
 
-  async initiateLogin(loginDto: InitiateLoginDto): Promise<ApiResponse<{ sessionId: string }>> {
+  async initiateLogin(
+    loginDto: InitiateLoginDto,
+  ): Promise<ApiResponse<{ sessionId: string }>> {
     try {
+      console.log('loginDto', loginDto);
       // Find user
       const user = await this.prisma.user.findUnique({
         where: { phoneNumber: loginDto.phoneNumber },
       });
+
+      console.log('user', user);
 
       if (!user) {
         return {
@@ -201,11 +242,18 @@ export class AuthService {
     }
   }
 
-  async verifyLogin(verifyDto: VerifyOtpForAuthDto): Promise<ApiResponse<{ token: string; user: any }>> {
+  async verifyLogin(
+    verifyDto: VerifyOtpForAuthDto,
+  ): Promise<ApiResponse<{ token: string; user: any }>> {
     try {
       // Verify OTP
-      const otpVerifyResult = await this.otpService.verifyOtp(verifyDto.sessionId, verifyDto.otp);
-      
+      const otpVerifyResult = await this.otpService.verifyOtp(
+        verifyDto.sessionId,
+        verifyDto.otp,
+      );
+
+      console.log('otpVerifyResult', otpVerifyResult);
+
       if (otpVerifyResult.Status === 'Error') {
         return {
           statusCode: HttpStatus.BAD_REQUEST,
@@ -281,7 +329,10 @@ export class AuthService {
   }
 
   private async generateToken(userId: string): Promise<string> {
-    return this.jwtService.sign({ sub: userId }, { secret: this.configService.get<string>('JWT_SECRET') });
+    return this.jwtService.sign(
+      { sub: userId },
+      { secret: this.configService.get<string>('JWT_SECRET') },
+    );
   }
 
   async resendOtp(phoneNumber: string): Promise<ApiResponse<any>> {

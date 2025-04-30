@@ -20,21 +20,13 @@ export class BusinessCitiesService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if city exists
-    const city = await this.prisma.city.findUnique({
-      where: { id: dto.cityId },
-    });
-
-    if (!city) {
-      throw new NotFoundException('City not found');
-    }
-
     // Check if user already has this city as a business city
     const existingBusinessCity = await this.prisma.userBusinessCity.findUnique({
       where: {
-        userId_cityId: {
+        userId_cityName_state: {
           userId,
-          cityId: dto.cityId,
+          cityName: dto.cityName,
+          state: dto.state,
         },
       },
     });
@@ -57,12 +49,13 @@ export class BusinessCitiesService {
     return this.prisma.userBusinessCity.create({
       data: {
         userId,
-        cityId: dto.cityId,
+        cityName: dto.cityName,
+        state: dto.state,
       },
     });
   }
 
-  async removeBusinessCity(cityId: string, userId: string) {
+  async removeBusinessCity(cityName: string, state: string, userId: string) {
     // Check if user exists
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -72,21 +65,13 @@ export class BusinessCitiesService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if city exists
-    const city = await this.prisma.city.findUnique({
-      where: { id: cityId },
-    });
-
-    if (!city) {
-      throw new NotFoundException('City not found');
-    }
-
     // Check if user has this city as a business city
     const businessCity = await this.prisma.userBusinessCity.findUnique({
       where: {
-        userId_cityId: {
+        userId_cityName_state: {
           userId,
-          cityId,
+          cityName: cityName,
+          state: state,
         },
       },
     });
@@ -118,50 +103,48 @@ export class BusinessCitiesService {
         userId,
         isActive: true,
       },
-      include: {
-        city: true,
-      },
     });
   }
 
-  async getRequirementsByBusinessCities(userId: string) {
-    // Get all active business cities for the user
+  async getRequirementsByBusinessCities(
+    userId: string,
+    carTypes?: string[],
+    pickupDateFrom?: string,
+    pickupDateTo?: string,
+  ) {
     const businessCities = await this.prisma.userBusinessCity.findMany({
       where: {
         userId,
         isActive: true,
       },
-      include: {
-        city: true,
-      },
     });
 
-    if (businessCities.length === 0) {
-      return [];
+    const cityNames = businessCities.map((bc) => bc.cityName);
+
+    const whereConditions: any = {
+      AND: [
+        { isDeleted: false },
+        { status: 'CREATED' },
+        {
+          OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
+        },
+        { NOT: { postedById: userId } },
+      ],
+    };
+
+    if (carTypes && carTypes.length > 0) {
+      whereConditions.AND.push({ carType: { in: carTypes } });
     }
 
-    // Extract city IDs
-    const cityIds = businessCities.map((bc) => bc.city.id);
-    const cityNames = businessCities.map((bc) => bc.city.name);
+    if (pickupDateFrom || pickupDateTo) {
+      const dateFilter: any = {};
+      if (pickupDateFrom) dateFilter.gte = new Date(pickupDateFrom);
+      if (pickupDateTo) dateFilter.lte = new Date(pickupDateTo);
+      whereConditions.AND.push({ pickupDate: dateFilter });
+    }
 
-    // Get requirements where fromCity or toCity matches any of the user's business cities
     return this.prisma.requirement.findMany({
-      where: {
-        OR: [
-          {
-            fromCity: {
-              in: cityNames,
-            },
-          },
-          {
-            toCity: {
-              in: cityNames,
-            },
-          },
-        ],
-        isDeleted: false,
-        status: 'CREATED',
-      },
+      where: whereConditions,
       include: {
         postedBy: {
           select: {
