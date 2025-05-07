@@ -208,7 +208,7 @@ model PostPhoto {
   postId    String   @db.VarChar(64)
   post      Post     @relation(fields: [postId], references: [id])
   file      Bytes    // Stores the binary file content
-  url       String
+  url       String?
   name      String   @db.VarChar(255) // Optional: original file name
   type      String   @db.VarChar(100) // Optional: MIME type (e.g., image/jpeg)
   createdAt DateTime @default(now())
