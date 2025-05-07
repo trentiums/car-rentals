@@ -8,36 +8,36 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(uuid())
-  phoneNumber String   @unique
-  fullName    String
-  email       String   @unique
-  businessName String?
-  businessDescription String? @db.Text
-  city        String
-  state       String
-  pinCode     String
-  isVerified  Boolean  @default(false)
-  role        Role     @default(USER)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  otpAttempts Int      @default(0)
-  lastOtpSentAt DateTime?
-  rentals     Rental[]
-  postedRequirements      Requirement[]   @relation("PostedRequirements")
-  assignedRequirements    Requirement[]   @relation("AssignedRequirements")
-  documents   UserDocument[]
-  subscriptions Subscription[]
-  businessCities UserBusinessCity[]
-  posts       Post[]
-  likes       Like[]
-  shares      Share[]
-  saves       Save[]
+  id                    String   @id @default(uuid()) @db.VarChar(64)
+  phoneNumber           String   @unique @db.VarChar(64)
+  fullName              String
+  email                 String   @unique @db.VarChar(64)
+  businessName          String?
+  businessDescription   String?  @db.Text
+  city                  String
+  state                 String
+  pinCode               String
+  isVerified            Boolean  @default(false)
+  role                  Role     @default(USER)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  otpAttempts           Int      @default(0)
+  lastOtpSentAt         DateTime?
+  rentals               Rental[]
+  postedRequirements    Requirement[]   @relation("PostedRequirements")
+  assignedRequirements  Requirement[]   @relation("AssignedRequirements")
+  documents             UserDocument[]
+  subscriptions         Subscription[]
+  businessCities        UserBusinessCity[]
+  posts                 Post[]
+  likes                 Like[]
+  shares                Share[]
+  saves                 Save[]
 }
 
 model CarType {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String   @id @default(uuid()) @db.VarChar(64)
+  name        String   @unique @db.VarChar(64)
   description String?  @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -46,74 +46,214 @@ model CarType {
 }
 
 model Car {
-  id          String   @id @default(uuid())
-  brand       String
-  model       String
-  year        Int
-  color       String
-  licensePlate String  @unique
-  isAvailable Boolean  @default(true)
-  carTypeId   String
-  carType     CarType  @relation(fields: [carTypeId], references: [id])
-  rentals     Rental[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(uuid()) @db.VarChar(64)
+  brand         String
+  model         String
+  year          Int
+  color         String
+  licensePlate  String   @unique @db.VarChar(64)
+  isAvailable   Boolean  @default(true)
+  carTypeId     String   @db.VarChar(64)
+  carType       CarType  @relation(fields: [carTypeId], references: [id])
+  rentals       Rental[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Rental {
-  id          String      @id @default(uuid())
+  id          String        @id @default(uuid()) @db.VarChar(64)
   startDate   DateTime
   endDate     DateTime
-  totalAmount Decimal     @db.Decimal(10, 2)
-  status      RentalStatus @default(PENDING)
-  userId      String
-  carId       String
-  user        User        @relation(fields: [userId], references: [id])
-  car         Car         @relation(fields: [carId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  totalAmount Decimal       @db.Decimal(10, 2)
+  status      RentalStatus  @default(PENDING)
+  userId      String        @db.VarChar(64)
+  carId       String        @db.VarChar(64)
+  user        User          @relation(fields: [userId], references: [id])
+  car         Car           @relation(fields: [carId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 model OtpVerification {
-  id          String   @id @default(uuid())
-  phoneNumber String
-  sessionId   String
+  id          String    @id @default(uuid()) @db.VarChar(64)
+  phoneNumber String    @db.VarChar(64)
+  sessionId   String    @db.VarChar(64)
   purpose     OtpPurpose
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   expiresAt   DateTime
-  verified    Boolean  @default(false)
+  verified    Boolean   @default(false)
 
   @@index([phoneNumber])
   @@index([sessionId])
 }
 
-enum RequirementStatus {
-  CREATED
-  CONFIRMED
-  ASSIGNED
+model Requirement {
+  id             String            @id @default(uuid()) @db.VarChar(64)
+  fromCity       String
+  toCity         String
+  pickupDate     DateTime
+  pickupTime     String
+  carType        String
+  tripType       String
+  budget         Float?
+  onlyVerified   Boolean           @default(false)
+  comment        String?
+  postedById     String            @db.VarChar(64)
+  postedBy       User              @relation("PostedRequirements", fields: [postedById], references: [id])
+  assignedToId   String?           @db.VarChar(64)
+  assignedTo     User?             @relation("AssignedRequirements", fields: [assignedToId], references: [id])
+  status         RequirementStatus @default(CREATED)
+  isDeleted      Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  returnTripId   String?           @db.VarChar(64)
+  isReturnTrip   Boolean           @default(false)
 }
 
-model Requirement {
-  id            String     @id @default(uuid())
-  fromCity      String
-  toCity        String
-  pickupDate    DateTime
-  pickupTime    String
-  carType       String
-  tripType      String
-  budget        Float?
-  onlyVerified  Boolean    @default(false)
-  comment       String?
-  postedById    String
-  postedBy      User       @relation("PostedRequirements", fields: [postedById], references: [id])
-  assignedToId  String?
-  assignedTo    User?      @relation("AssignedRequirements", fields: [assignedToId], references: [id])
-  status        RequirementStatus @default(CREATED)
-  isDeleted     Boolean    @default(false)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  returnTripId  String?    // ID of the original trip if this is a return trip
-  isReturnTrip  Boolean    @default(false) // Flag to indicate if this is a return trip
+model UserDocument {
+  id              String         @id @default(uuid()) @db.VarChar(64)
+  userId          String         @db.VarChar(64)
+  user            User           @relation(fields: [userId], references: [id])
+  documentType    DocumentType
+  documentUrl     String
+  status          DocumentStatus @default(PENDING)
+  rejectionReason String?
+  reviewedBy      String?        @db.VarChar(64)
+  reviewedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Subscription {
+  id             String   @id @default(uuid()) @db.VarChar(64)
+  userId         String   @db.VarChar(64)
+  user           User     @relation(fields: [userId], references: [id])
+  plan           String
+  startDate      DateTime
+  endDate        DateTime
+  price          Float
+  isActive       Boolean  @default(true)
+  promoCodeUsed  String?  @db.VarChar(64)
+  cancelledAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model PromoCode {
+  id                String   @id @default(uuid()) @db.VarChar(64)
+  code              String   @unique @db.VarChar(64)
+  discountPercentage Float
+  isActive          Boolean  @default(true)
+  startDate         DateTime
+  endDate           DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model UserBusinessCity {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  userId    String   @db.VarChar(64)
+  user      User     @relation(fields: [userId], references: [id])
+  cityName  String   @db.VarChar(64)
+  state     String   @db.VarChar(64)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, cityName, state])
+  @@index([userId])
+  @@index([cityName])
+}
+
+model City {
+  id         String   @id @default(uuid()) @db.VarChar(64)
+  name       String   @db.VarChar(64)
+  state      String   @db.VarChar(64)
+  population Int      @default(0)
+  latitude   String
+  longitude  String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([name, state])
+  @@index([name])
+  @@index([state])
+}
+
+model Post {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  userId    String   @db.VarChar(64)
+  user      User     @relation(fields: [userId], references: [id])
+  content   String   @db.Text
+  location  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  photos    PostPhoto[]
+  likes     Like[]
+  shares    Share[]
+  saves     Save[]
+
+  @@index([userId])
+}
+
+model PostPhoto {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  postId    String   @db.VarChar(64)
+  post      Post     @relation(fields: [postId], references: [id])
+  file      Bytes    // Stores the binary file content
+  url       String
+  name      String   @db.VarChar(255) // Optional: original file name
+  type      String   @db.VarChar(100) // Optional: MIME type (e.g., image/jpeg)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
+}
+
+
+model Like {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  postId    String   @db.VarChar(64)
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String   @db.VarChar(64)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model Share {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  postId    String   @db.VarChar(64)
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String   @db.VarChar(64)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@index([userId])
+}
+
+model Save {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  postId    String   @db.VarChar(64)
+  post      Post     @relation(fields: [postId], references: [id])
+  userId    String   @db.VarChar(64)
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
 }
 
 enum Role {
@@ -147,144 +287,8 @@ enum DocumentStatus {
   REJECTED
 }
 
-model UserDocument {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  documentType DocumentType
-  documentUrl String
-  status      DocumentStatus @default(PENDING)
-  rejectionReason String?
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([userId])
-  @@index([status])
-}
-
-model Subscription {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  plan          String
-  startDate     DateTime
-  endDate       DateTime
-  price         Float
-  isActive      Boolean  @default(true)
-  promoCodeUsed String?
-  cancelledAt   DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([userId])
-}
-
-model PromoCode {
-  id                  String   @id @default(uuid())
-  code                String   @unique
-  discountPercentage  Float
-  isActive            Boolean  @default(true)
-  startDate           DateTime
-  endDate             DateTime
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-model UserBusinessCity {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  cityName    String
-  state       String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([userId, cityName, state])
-  @@index([userId])
-  @@index([cityName])
-}
-
-model City {
-  id          String   @id @default(uuid())
-  name        String
-  state       String
-  population  Int      @default(0)
-  latitude    String
-  longitude   String
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([name, state])
-  @@index([name])
-  @@index([state])
-}
-
-model Post {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  content     String   @db.Text
-  location    String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  photos      PostPhoto[]
-  likes       Like[]
-  shares      Share[]
-  saves       Save[]
-
-  @@index([userId])
-}
-
-model PostPhoto {
-  id          String   @id @default(uuid())
-  postId      String
-  post        Post     @relation(fields: [postId], references: [id])
-  url         String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([postId])
-}
-
-model Like {
-  id          String   @id @default(uuid())
-  postId      String
-  post        Post     @relation(fields: [postId], references: [id])
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-
-  @@unique([postId, userId])
-  @@index([postId])
-  @@index([userId])
-}
-
-model Share {
-  id          String   @id @default(uuid())
-  postId      String
-  post        Post     @relation(fields: [postId], references: [id])
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-
-  @@index([postId])
-  @@index([userId])
-}
-
-model Save {
-  id          String   @id @default(uuid())
-  postId      String
-  post        Post     @relation(fields: [postId], references: [id])
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-
-  @@unique([postId, userId])
-  @@index([postId])
-  @@index([userId])
+enum RequirementStatus {
+  CREATED
+  CONFIRMED
+  ASSIGNED
 }

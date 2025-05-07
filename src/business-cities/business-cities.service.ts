@@ -8,7 +8,7 @@ import { AddBusinessCityDto } from './dto/add-business-city.dto';
 
 @Injectable()
 export class BusinessCitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async addBusinessCity(dto: AddBusinessCityDto, userId: string) {
     // Check if user exists
@@ -111,6 +111,8 @@ export class BusinessCitiesService {
     carTypes?: string[],
     pickupDateFrom?: string,
     pickupDateTo?: string,
+    page: number = 1,
+    limit: number = 10,
   ) {
     const businessCities = await this.prisma.userBusinessCity.findMany({
       where: {
@@ -143,21 +145,41 @@ export class BusinessCitiesService {
       whereConditions.AND.push({ pickupDate: dateFilter });
     }
 
-    return this.prisma.requirement.findMany({
-      where: whereConditions,
-      include: {
-        postedBy: {
-          select: {
-            id: true,
-            fullName: true,
-            phoneNumber: true,
-            isVerified: true,
+    const skip = (page - 1) * limit;
+
+    const [requirements, total] = await Promise.all([
+      this.prisma.requirement.findMany({
+        where: whereConditions,
+        include: {
+          postedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
+              isVerified: true,
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.requirement.count({
+        where: whereConditions,
+      }),
+    ]);
+
+    return {
+      statusCode: 200,
+      message: 'Requirements fetched successfully',
+      data: {
+        requirements,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+    };
   }
+
 }

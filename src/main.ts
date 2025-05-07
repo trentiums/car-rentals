@@ -16,7 +16,6 @@ async function bootstrap() {
 
   // Set global prefix
   app.setGlobalPrefix('api');
-  console.log('hello');
   // Enable validation
   app.useGlobalPipes(new ValidationPipe({
     transform: true,

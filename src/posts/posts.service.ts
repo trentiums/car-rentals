@@ -1,8 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -13,14 +11,21 @@ export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) { }
 
-  async createPost(userId: string, createPostDto: CreatePostDto, files: any[]) {
-    const photoUrls: { url: string }[] = [];
+  async createPost(userId: string, createPostDto: CreatePostDto, files: Express.Multer.File[]) {
+    const photoData: { file: Buffer; name: string; type: string }[] = [];
+
     if (files && files.length > 0) {
       for (const file of files) {
-        const photoUrl = await this.s3Service.uploadFile(file, 'posts');
-        photoUrls.push({ url: photoUrl });
+        // Store file in memory and generate URL for access
+        const fileUrl = `http://192.168.1.35:3000/files/posts/${file.filename}`;
+
+        photoData.push({
+          file: file.buffer,
+          name: file.originalname,
+          type: file.mimetype,
+        });
       }
     }
 
@@ -30,7 +35,7 @@ export class PostsService {
         location: createPostDto.location,
         userId,
         photos: {
-          create: photoUrls,
+          create: photoData,
         },
       },
       include: {
@@ -45,8 +50,9 @@ export class PostsService {
     });
   }
 
-  async getPosts(page: number = 1, limit: number = 10) {
+  async getPosts(userId: number, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
+
     const [posts, total] = await Promise.all([
       this.prisma.post.findMany({
         skip,
@@ -60,7 +66,35 @@ export class PostsService {
               fullName: true,
             },
           },
-          photos: true,
+          photos: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+            },
+          },
+          likes: {
+            where: {
+              userId: String(userId),
+            },
+            select: {
+              id: true,
+            },
+          },
+          saves: {  // Assuming this is the relation for saved posts
+            where: {
+              userId: String(userId),
+            },
+            select: {
+              id: true,
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              shares: true,
+            },
+          },
         },
       }),
       this.prisma.post.count({
@@ -68,14 +102,26 @@ export class PostsService {
       }),
     ]);
 
+    // Add hasLiked and hasSaved flags
+    const postsWithStatus = posts.map((post) => ({
+      ...post,
+      hasLiked: post.likes.length > 0,
+      hasSaved: post.saves.length > 0,
+    }));
+
     return {
-      posts,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      statusCode: 200,
+      message: 'Posts fetched successfully',
+      data: {
+        posts: postsWithStatus,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
+
 
   async getPostById(id: string) {
     const post = await this.prisma.post.findUnique({

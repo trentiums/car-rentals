@@ -278,6 +278,7 @@ export class RequirementService {
         );
       }
     }
+    
 
     return this.prisma.requirement.findMany({
       where: filters,

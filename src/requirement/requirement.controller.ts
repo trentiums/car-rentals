@@ -9,6 +9,7 @@ import {
   Get,
   UnauthorizedException,
   Query,
+  HttpStatus,
 } from '@nestjs/common';
 import { RequirementService } from './requirement.service';
 import { CreateRequirementDto } from './dto/create.requirement.dto';
@@ -35,7 +36,7 @@ export class RequirementController {
   constructor(
     private readonly service: RequirementService,
     private readonly businessCitiesService: BusinessCitiesService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new requirement' })
@@ -110,23 +111,28 @@ export class RequirementController {
   })
   list(
     @Req() req,
-    @Query('carTypes') carTypes?: string, // comma-separated string
+    @Query('carTypes') carTypes?: string,
     @Query('pickupDateFrom') pickupDateFrom?: string,
     @Query('pickupDateTo') pickupDateTo?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
   ) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
 
-    // Parse filters
     const carTypeArray = carTypes ? carTypes.split(',') : undefined;
+
     return this.businessCitiesService.getRequirementsByBusinessCities(
       req.user.id,
       carTypeArray,
       pickupDateFrom,
       pickupDateTo,
+      page,
+      limit,
     );
   }
+
 
   @Get('my-requirements')
   @ApiOperation({ summary: 'List requirements posted by the logged-in user' })
@@ -134,7 +140,7 @@ export class RequirementController {
   @ApiQuery({ name: 'fromDate', required: false, type: String }) // e.g., 2024-01-01
   @ApiQuery({ name: 'toDate', required: false, type: String }) // e.g., 2024-01-31
   @ApiResponse({ status: 200, description: 'List returned successfully' })
-  listMyRequirements(
+  async listMyRequirements(
     @Req() req,
     @Query('status') status?: string,
     @Query('fromDate') fromDate?: string,
@@ -143,12 +149,12 @@ export class RequirementController {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
+    const data = await this.service.getMyRequirements(req.user.id, status, fromDate, toDate);
 
-    return this.service.getMyRequirements(
-      req.user.id,
-      status,
-      fromDate,
-      toDate,
-    );
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Requirements fetched successfully',
+      data,
+    };
   }
 }

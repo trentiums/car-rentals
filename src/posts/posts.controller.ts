@@ -7,12 +7,9 @@ import {
   Get,
   Delete,
   Param,
-  UnauthorizedException,
   UseInterceptors,
   UploadedFiles,
   Query,
-  ParseIntPipe,
-  Request,
 } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -22,27 +19,38 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
-  ApiConsumes,
-  ApiBody,
 } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { v4 as uuidv4 } from 'uuid';
+import { extname } from 'path';
+import { successResponse } from 'src/common/response.helper';
+
+
+const storage = diskStorage({
+  destination: './uploads/posts',
+  filename: (req, file, callback) => {
+    const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
+    callback(null, uniqueName);
+  },
+});
 
 @ApiBearerAuth()
 @ApiTags('posts')
 @UseGuards(JwtAuthGuard)
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(private readonly postsService: PostsService) { }
 
   @Post()
-  @UseInterceptors(FilesInterceptor('photos', 10))
+  @UseInterceptors(FilesInterceptor('photos', 10, { storage }))
   @ApiOperation({ summary: 'Create a new post' })
   @ApiResponse({ status: 201, description: 'Post created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   createPost(
     @Req() req,
     @Body() createPostDto: CreatePostDto,
-    @UploadedFiles() files: any[],
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
     return this.postsService.createPost(req.user.id, createPostDto, files);
   }
@@ -51,10 +59,11 @@ export class PostsController {
   @ApiOperation({ summary: 'Get all posts' })
   @ApiResponse({ status: 200, description: 'Return all posts' })
   getPosts(
+    @Req() req,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
   ) {
-    return this.postsService.getPosts(page, limit);
+    return this.postsService.getPosts(req.user.id, page, limit);
   }
 
   @Get(':id')
@@ -62,7 +71,8 @@ export class PostsController {
   @ApiResponse({ status: 200, description: 'Return the post' })
   @ApiResponse({ status: 404, description: 'Post not found' })
   getPostById(@Param('id') id: string) {
-    return this.postsService.getPostById(id);
+    const result = this.postsService.getPostById(id);
+    return successResponse(result, `post with id ${id} get successfully`)
   }
 
   @Delete(':id')
@@ -76,22 +86,26 @@ export class PostsController {
   @Post(':id/like')
   @ApiOperation({ summary: 'Like or unlike a post' })
   @ApiResponse({ status: 200, description: 'Post liked/unliked successfully' })
-  likePost(@Param('id') id: string, @Req() req) {
-    return this.postsService.likePost(id, req.user.id);
+  async likePost(@Param('id') id: string, @Req() req) {
+    const result = await this.postsService.likePost(id, req.user.id);
+    return successResponse(result, 'Post liked/unliked successfully');
   }
+
 
   @Post(':id/share')
   @ApiOperation({ summary: 'Share a post' })
   @ApiResponse({ status: 200, description: 'Post shared successfully' })
-  sharePost(@Param('id') id: string, @Req() req) {
-    return this.postsService.sharePost(id, req.user.id);
+  async sharePost(@Param('id') id: string, @Req() req) {
+    const result = await this.postsService.sharePost(id, req.user.id);
+    return successResponse(result, 'Post shared successfully');
   }
 
   @Post(':id/save')
   @ApiOperation({ summary: 'Save or unsave a post' })
   @ApiResponse({ status: 200, description: 'Post saved/unsaved successfully' })
-  savePost(@Param('id') id: string, @Req() req) {
-    return this.postsService.savePost(id, req.user.id);
+  async savePost(@Param('id') id: string, @Req() req) {
+    const result = await this.postsService.savePost(id, req.user.id);
+    return successResponse(result, 'Post save/unsave updated successfully');
   }
 
   @Get('user/:userId')

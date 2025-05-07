@@ -13,7 +13,7 @@ import { NotFoundException } from '@nestjs/common';
 @Controller('car-types')
 @ApiBearerAuth()
 export class CarTypesController {
-  constructor(private readonly carTypesService: CarTypesService) {}
+  constructor(private readonly carTypesService: CarTypesService) { }
 
   @Post()
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -41,7 +41,7 @@ export class CarTypesController {
   findOne(@Param('id') id: string) {
     return this.carTypesService.findOne(id);
   }
-  
+
   @Post('update')
   @UseGuards(JwtAuthGuard, AdminGuard)
   @ApiOperation({ summary: 'Update a car type (Admin only)' })
@@ -52,7 +52,7 @@ export class CarTypesController {
   updateCarType(@Body() body: { id: string } & UpdateCarTypeDto) {
     return this.carTypesService.update(body.id, body);
   }
-  
+
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
@@ -64,12 +64,12 @@ export class CarTypesController {
   async deactivate(@Param('id') id: string) {
     // Call the service method to update isActive to false instead of deleting
     const carType = await this.carTypesService.deactivate(id);
-    
+
     if (!carType) {
       throw new NotFoundException('Car type not found');
     }
-  
+
     return { message: 'Car type deactivated successfully' };
   }
-  
+
 }
