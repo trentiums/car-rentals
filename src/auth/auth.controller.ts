@@ -7,6 +7,7 @@ import {
   ResendOtpDto,
 } from './dto/auth.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { successResponse } from 'src/common/response.helper';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -21,7 +22,12 @@ export class AuthController {
   })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request' })
   async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+    const data = await this.authService.register(registerDto);
+    return successResponse(
+      data,
+      'Registration initiated successfully',
+      HttpStatus.CREATED,
+    );
   }
 
   @Post('verify-registration')
@@ -32,7 +38,8 @@ export class AuthController {
   })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid OTP' })
   async verifyRegistration(@Body() verifyDto: VerifyOtpForAuthDto) {
-    return this.authService.verifyRegistration(verifyDto);
+    const data = await this.authService.verifyRegistration(verifyDto);
+    return successResponse(data, 'Registration completed successfully');
   }
 
   @Post('login')
@@ -40,7 +47,8 @@ export class AuthController {
   @ApiResponse({ status: HttpStatus.OK, description: 'OTP sent successfully' })
   @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
   async initiateLogin(@Body() loginDto: InitiateLoginDto) {
-    return this.authService.initiateLogin(loginDto);
+    const data = await this.authService.initiateLogin(loginDto);
+    return successResponse(data, 'OTP sent successfully');
   }
 
   @Post('verify-login')
@@ -51,7 +59,8 @@ export class AuthController {
   })
   @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid OTP' })
   async verifyLogin(@Body() verifyDto: VerifyOtpForAuthDto) {
-    return this.authService.verifyLogin(verifyDto);
+    const data = await this.authService.verifyLogin(verifyDto);
+    return successResponse(data, 'Login completed successfully');
   }
 
   @Post('resend-otp')
@@ -66,6 +75,7 @@ export class AuthController {
   })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
   async resendOtp(@Body() resendOtpDto: ResendOtpDto) {
-    return this.authService.resendOtp(resendOtpDto.phoneNumber);
+    const data = await this.authService.resendOtp(resendOtpDto.phoneNumber);
+    return successResponse(data, 'OTP resent successfully');
   }
 }

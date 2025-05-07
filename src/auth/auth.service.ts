@@ -1,4 +1,11 @@
-import { Injectable, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  HttpStatus,
+  BadRequestException,
+  UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OtpService } from '../otp/otp.service';
 import { JwtService } from '@nestjs/jwt';
@@ -7,7 +14,6 @@ import {
   InitiateLoginDto,
   VerifyOtpForAuthDto,
 } from './dto/auth.dto';
-import { ApiResponse } from '../common/interfaces/api-response.interface';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -19,323 +25,249 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(
-    registerDto: RegisterDto,
-  ): Promise<ApiResponse<{ sessionId: string }>> {
-    try {
-      // Check if user already exists
-      const existingUser = await this.prisma.user.findFirst({
-        where: {
-          OR: [
-            { phoneNumber: registerDto.phoneNumber },
-            { email: registerDto.email },
-          ],
-        },
-      });
+  async register(registerDto: RegisterDto) {
+    // Check if user already exists
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber: registerDto.phoneNumber },
+          { email: registerDto.email },
+        ],
+      },
+    });
 
-      if (existingUser) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          message: 'User with this phone number or email already exists',
-          error: 'BAD_REQUEST',
-        };
-      }
-
-      // Send OTP
-      const otpResponse = await this.otpService.sendOtp(
-        registerDto.phoneNumber,
+    if (existingUser) {
+      throw new BadRequestException(
+        'User with this phone number or email already exists',
       );
-
-      // Create unverified user
-      const user = await this.prisma.user.create({
-        data: {
-          phoneNumber: registerDto.phoneNumber,
-          fullName: registerDto.fullName,
-          email: registerDto.email,
-          businessName: registerDto.businessName,
-          businessDescription: registerDto.businessDescription,
-          city: registerDto.city,
-          state: registerDto.state,
-          pinCode: registerDto.pinCode,
-          isVerified: false,
-          role: 'USER',
-        },
-      });
-
-      // Store OTP verification record
-      await this.prisma.otpVerification.create({
-        data: {
-          phoneNumber: registerDto.phoneNumber,
-          sessionId: otpResponse.sessionId,
-          purpose: 'REGISTRATION',
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        },
-      });
-
-      return {
-        statusCode: HttpStatus.CREATED,
-        message: 'Registration initiated. Please verify your phone number.',
-        data: { sessionId: otpResponse.sessionId },
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Failed to register user',
-        error: error.message,
-      };
     }
+
+    // Send OTP
+    const otpResponse = await this.otpService.sendOtp(registerDto.phoneNumber);
+
+    // Create unverified user
+    const user = await this.prisma.user.create({
+      data: {
+        phoneNumber: registerDto.phoneNumber,
+        fullName: registerDto.fullName,
+        email: registerDto.email,
+        businessName: registerDto.businessName,
+        businessDescription: registerDto.businessDescription,
+        city: registerDto.city,
+        state: registerDto.state,
+        pinCode: registerDto.pinCode,
+        isVerified: false,
+        role: 'USER',
+      },
+    });
+
+    // Store OTP verification record
+    await this.prisma.otpVerification.create({
+      data: {
+        phoneNumber: registerDto.phoneNumber,
+        sessionId: otpResponse.sessionId,
+        purpose: 'REGISTRATION',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    return { sessionId: otpResponse.sessionId };
   }
 
-  async verifyRegistration(
-    verifyDto: VerifyOtpForAuthDto,
-  ): Promise<ApiResponse<{ token: string; user: any }>> {
-    try {
-      // Verify OTP
-      const otpVerifyResult = await this.otpService.verifyOtp(
-        verifyDto.sessionId,
-        verifyDto.otp,
-      );
+  async verifyRegistration(verifyDto: VerifyOtpForAuthDto) {
+    // Verify OTP
+    const otpVerifyResult = await this.otpService.verifyOtp(
+      verifyDto.sessionId,
+      verifyDto.otp,
+    );
 
-      if (otpVerifyResult.Status === 'Error') {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          message: 'OTP verification failed',
-          error: otpVerifyResult.Details,
-        };
-      }
-
-      // Update OTP verification record
-      const otpVerification = await this.prisma.otpVerification.findFirst({
-        where: {
-          phoneNumber: verifyDto.phoneNumber,
-          sessionId: verifyDto.sessionId,
-          purpose: 'REGISTRATION',
-          verified: false,
-          expiresAt: {
-            gt: new Date(),
-          },
-        },
-      });
-
-      if (!otpVerification) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          message: 'Invalid or expired OTP session',
-          error: 'INVALID_SESSION',
-        };
-      }
-
-      // Mark OTP as verified
-      await this.prisma.otpVerification.update({
-        where: { id: otpVerification.id },
-        data: { verified: true },
-      });
-
-      // Get user with their city and state
-      const user = await this.prisma.user.findUnique({
-        where: { phoneNumber: verifyDto.phoneNumber },
-      });
-
-      if (!user) {
-        return {
-          statusCode: HttpStatus.NOT_FOUND,
-          message: 'User not found',
-          error: 'USER_NOT_FOUND',
-        };
-      }
-
-      // Mark user as verified
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { isVerified: true },
-      });
-
-      // Add user's city as a business city
-      await this.prisma.userBusinessCity.create({
-        data: {
-          userId: user.id,
-          cityName: user.city,
-          state: user.state,
-          isActive: true,
-        },
-      });
-
-      // Generate JWT token
-      const token = await this.generateToken(user.id);
-
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'Registration completed successfully',
-        data: {
-          token,
-          user: {
-            id: user.id,
-            phoneNumber: user.phoneNumber,
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role,
-          },
-        },
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Failed to verify registration',
-        error: error.message,
-      };
+    if (otpVerifyResult.Status === 'Error') {
+      throw new BadRequestException('OTP verification failed');
     }
+
+    // Update OTP verification record
+    const otpVerification = await this.prisma.otpVerification.findFirst({
+      where: {
+        phoneNumber: verifyDto.phoneNumber,
+        sessionId: verifyDto.sessionId,
+        purpose: 'REGISTRATION',
+        verified: false,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!otpVerification) {
+      throw new BadRequestException('Invalid or expired OTP session');
+    }
+
+    // Mark OTP as verified
+    await this.prisma.otpVerification.update({
+      where: { id: otpVerification.id },
+      data: { verified: true },
+    });
+
+    // Get user with their city and state
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber: verifyDto.phoneNumber },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Mark user as verified
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { isVerified: true },
+    });
+
+    // Add user's city as a business city
+    await this.prisma.userBusinessCity.create({
+      data: {
+        userId: user.id,
+        cityName: user.city,
+        state: user.state,
+        isActive: true,
+      },
+    });
+
+    // Generate JWT token
+    const token = await this.generateToken(user.id);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    };
   }
 
-  async initiateLogin(
-    loginDto: InitiateLoginDto,
-  ): Promise<ApiResponse<{ sessionId: string }>> {
-    try {
-      console.log('loginDto', loginDto);
-      // Find user
-      const user = await this.prisma.user.findUnique({
-        where: { phoneNumber: loginDto.phoneNumber },
-      });
+  async initiateLogin(loginDto: InitiateLoginDto) {
+    // Find user
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber: loginDto.phoneNumber },
+    });
 
-      console.log('user', user);
-
-      if (!user) {
-        return {
-          statusCode: HttpStatus.UNAUTHORIZED,
-          message: 'User not found',
-          error: 'USER_NOT_FOUND',
-        };
-      }
-
-      // Check if user is verified
-      if (!user.isVerified) {
-        return {
-          statusCode: HttpStatus.FORBIDDEN,
-          message: 'Please complete your registration first',
-          error: 'UNVERIFIED_USER',
-        };
-      }
-
-      // Send OTP
-      const otpResponse = await this.otpService.sendOtp(loginDto.phoneNumber);
-
-      // Store OTP verification record
-      await this.prisma.otpVerification.create({
-        data: {
-          phoneNumber: loginDto.phoneNumber,
-          sessionId: otpResponse.sessionId,
-          purpose: 'LOGIN',
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        },
-      });
-
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'OTP sent successfully',
-        data: { sessionId: otpResponse.sessionId },
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Failed to initiate login',
-        error: error.message,
-      };
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      throw new ForbiddenException('Please complete your registration first');
+    }
+
+    // Send OTP
+    const otpResponse = await this.otpService.sendOtp(loginDto.phoneNumber);
+
+    // Store OTP verification record
+    await this.prisma.otpVerification.create({
+      data: {
+        phoneNumber: loginDto.phoneNumber,
+        sessionId: otpResponse.sessionId,
+        purpose: 'LOGIN',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    return { sessionId: otpResponse.sessionId };
   }
 
-  async verifyLogin(
-    verifyDto: VerifyOtpForAuthDto,
-  ): Promise<ApiResponse<{ token: string; user: any }>> {
-    try {
-      // Verify OTP
-      const otpVerifyResult = await this.otpService.verifyOtp(
-        verifyDto.sessionId,
-        verifyDto.otp,
-      );
+  async verifyLogin(verifyDto: VerifyOtpForAuthDto) {
+    // Verify OTP
+    const otpVerifyResult = await this.otpService.verifyOtp(
+      verifyDto.sessionId,
+      verifyDto.otp,
+    );
 
-      console.log('otpVerifyResult', otpVerifyResult);
-
-      if (otpVerifyResult.Status === 'Error') {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          message: 'OTP verification failed',
-          error: otpVerifyResult.Details,
-        };
-      }
-
-      // Update OTP verification record
-      const otpVerification = await this.prisma.otpVerification.findFirst({
-        where: {
-          phoneNumber: verifyDto.phoneNumber,
-          sessionId: verifyDto.sessionId,
-          purpose: 'LOGIN',
-          verified: false,
-          expiresAt: {
-            gt: new Date(),
-          },
-        },
-      });
-
-      if (!otpVerification) {
-        return {
-          statusCode: HttpStatus.BAD_REQUEST,
-          message: 'Invalid or expired OTP session',
-          error: 'INVALID_SESSION',
-        };
-      }
-
-      // Mark OTP as verified
-      await this.prisma.otpVerification.update({
-        where: { id: otpVerification.id },
-        data: { verified: true },
-      });
-
-      // Get user
-      const user = await this.prisma.user.findUnique({
-        where: { phoneNumber: verifyDto.phoneNumber },
-      });
-
-      if (!user) {
-        return {
-          statusCode: HttpStatus.UNAUTHORIZED,
-          message: 'User not found',
-          error: 'USER_NOT_FOUND',
-        };
-      }
-
-      // Generate JWT token
-      const token = await this.generateToken(user.id);
-
-      return {
-        statusCode: HttpStatus.OK,
-        message: 'Login successful',
-        data: {
-          token,
-          user: {
-            id: user.id,
-            phoneNumber: user.phoneNumber,
-            fullName: user.fullName,
-            email: user.email,
-            role: user.role,
-          },
-        },
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Failed to verify login',
-        error: error.message,
-      };
+    if (otpVerifyResult.Status === 'Error') {
+      throw new BadRequestException('OTP verification failed');
     }
+
+    // Update OTP verification record
+    const otpVerification = await this.prisma.otpVerification.findFirst({
+      where: {
+        phoneNumber: verifyDto.phoneNumber,
+        sessionId: verifyDto.sessionId,
+        purpose: 'LOGIN',
+        verified: false,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!otpVerification) {
+      throw new BadRequestException('Invalid or expired OTP session');
+    }
+
+    // Mark OTP as verified
+    await this.prisma.otpVerification.update({
+      where: { id: otpVerification.id },
+      data: { verified: true },
+    });
+
+    // Get user
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber: verifyDto.phoneNumber },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Generate JWT token
+    const token = await this.generateToken(user.id);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  async resendOtp(phoneNumber: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const otpResponse = await this.otpService.sendOtp(phoneNumber);
+
+    // Store OTP verification record
+    await this.prisma.otpVerification.create({
+      data: {
+        phoneNumber,
+        sessionId: otpResponse.sessionId,
+        purpose: user.isVerified ? 'LOGIN' : 'REGISTRATION',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
+    });
+
+    return { sessionId: otpResponse.sessionId };
   }
 
   private async generateToken(userId: string): Promise<string> {
     return this.jwtService.sign(
       { sub: userId },
-      { secret: this.configService.get<string>('JWT_SECRET') },
+      {
+        secret: this.configService.get('JWT_SECRET'),
+        expiresIn: '30d',
+      },
     );
-  }
-
-  async resendOtp(phoneNumber: string): Promise<ApiResponse<any>> {
-    return this.otpService.resendOtp(phoneNumber);
   }
 }

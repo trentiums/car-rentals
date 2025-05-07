@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -16,6 +16,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { BusinessCitiesModule } from './business-cities/business-cities.module';
 import { PostsModule } from './posts/posts.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { PostsModule } from './posts/posts.module';
     }),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'uploads'),
-      serveRoot: '/files', // will be accessible at /files/posts/filename.jpg
+      serveRoot: '/files',
     }),
     PrismaModule,
     CitiesModule,
@@ -36,8 +37,9 @@ import { PostsModule } from './posts/posts.module';
     SubscriptionModule,
     BusinessCitiesModule,
     PostsModule,
+    SettingsModule,
   ],
   controllers: [AppController, RequirementController],
   providers: [AppService, RequirementService],
 })
-export class AppModule { }
+export class AppModule {}

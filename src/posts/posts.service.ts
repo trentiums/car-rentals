@@ -2,30 +2,49 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { S3Service } from 'src/common/s3.service';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import * as fs from 'fs';
 
 @Injectable()
 export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) {}
+  ) {
+    // Ensure uploads directory exists
+    const uploadsDir = join(process.cwd(), 'uploads', 'posts');
+    if (!existsSync(uploadsDir)) {
+      mkdirSync(uploadsDir, { recursive: true });
+    }
+  }
 
   async createPost(
     userId: string,
     createPostDto: CreatePostDto,
     files: Express.Multer.File[],
   ) {
-    const photoData: { file: Buffer; name: string; type: string }[] = [];
+    const photoData: {
+      file: Buffer;
+      name: string;
+      type: string;
+      url?: string;
+    }[] = [];
 
     if (files && files.length > 0) {
       for (const file of files) {
         // Store file in memory and generate URL for access
-        const fileUrl = `http://192.168.1.35:3000/files/posts/${file.filename}`;
+        const fileUrl = `http://localhost:3000/files/posts/${file.filename}`;
+
+        // Read the file from disk since it's stored there
+        const filePath = join(process.cwd(), 'uploads', 'posts', file.filename);
+        const fileBuffer = await fs.promises.readFile(filePath);
 
         photoData.push({
-          file: file.buffer,
+          file: fileBuffer,
           name: file.originalname,
           type: file.mimetype,
+          url: fileUrl,
         });
       }
     }
@@ -112,15 +131,11 @@ export class PostsService {
     }));
 
     return {
-      statusCode: 200,
-      message: 'Posts fetched successfully',
-      data: {
-        posts: postsWithStatus,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      posts: postsWithStatus,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
 

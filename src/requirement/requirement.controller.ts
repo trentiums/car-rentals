@@ -27,6 +27,7 @@ import {
 } from '@nestjs/swagger';
 import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
 import { BusinessCitiesService } from 'src/business-cities/business-cities.service';
+import { successResponse } from 'src/common/response.helper';
 
 @ApiBearerAuth()
 @ApiTags('requirement')
@@ -36,14 +37,19 @@ export class RequirementController {
   constructor(
     private readonly service: RequirementService,
     private readonly businessCitiesService: BusinessCitiesService,
-  ) { }
+  ) {}
 
   @Post()
   @ApiOperation({ summary: 'Create a new requirement' })
   @ApiResponse({ status: 201, description: 'Requirement created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
-  create(@Body() dto: CreateRequirementDto, @Req() req) {
-    return this.service.createRequirement(dto, req.user.id);
+  async create(@Body() dto: CreateRequirementDto, @Req() req) {
+    const data = await this.service.createRequirement(dto, req.user.id);
+    return successResponse(
+      data,
+      'Requirement created successfully',
+      HttpStatus.CREATED,
+    );
   }
 
   @Post('confirm')
@@ -56,8 +62,9 @@ export class RequirementController {
     status: 400,
     description: 'Invalid requirement ID or confirmation failed',
   })
-  confirm(@Body() dto: ConfirmRequirementDto, @Req() req) {
-    return this.service.confirmRequirement(dto, req.user.id);
+  async confirm(@Body() dto: ConfirmRequirementDto, @Req() req) {
+    const data = await this.service.confirmRequirement(dto, req.user.id);
+    return successResponse(data, 'Requirement confirmed successfully');
   }
 
   @Post('assign')
@@ -67,11 +74,12 @@ export class RequirementController {
     description: 'Requirement assigned successfully',
   })
   @ApiResponse({ status: 400, description: 'Invalid assignment request' })
-  assign(@Body() dto: AssignRequirementDto, @Req() req) {
+  async assign(@Body() dto: AssignRequirementDto, @Req() req) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.assignRequirement(dto, req.user.id);
+    const data = await this.service.assignRequirement(dto, req.user.id);
+    return successResponse(data, 'Requirement assigned successfully');
   }
 
   @Post('return')
@@ -85,11 +93,16 @@ export class RequirementController {
   })
   @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
   @ApiResponse({ status: 404, description: 'Original requirement not found' })
-  createReturnTrip(@Body() dto: CreateReturnRequirementDto, @Req() req) {
+  async createReturnTrip(@Body() dto: CreateReturnRequirementDto, @Req() req) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.createReturnRequirement(dto, req.user.id);
+    const data = await this.service.createReturnRequirement(dto, req.user.id);
+    return successResponse(
+      data,
+      'Return trip requirement created successfully',
+      HttpStatus.CREATED,
+    );
   }
 
   @Delete(':id')
@@ -99,8 +112,9 @@ export class RequirementController {
     description: 'Requirement deleted (soft) successfully',
   })
   @ApiResponse({ status: 404, description: 'Requirement not found' })
-  softDelete(@Param('id') id: string) {
-    return this.service.deleteRequirement(id);
+  async softDelete(@Param('id') id: string) {
+    const data = await this.service.deleteRequirement(id);
+    return successResponse(data, 'Requirement deleted successfully');
   }
 
   @Get()
@@ -109,7 +123,7 @@ export class RequirementController {
     status: 200,
     description: 'List of requirements returned successfully',
   })
-  list(
+  async list(
     @Req() req,
     @Query('carTypes') carTypes?: string,
     @Query('pickupDateFrom') pickupDateFrom?: string,
@@ -123,16 +137,17 @@ export class RequirementController {
 
     const carTypeArray = carTypes ? carTypes.split(',') : undefined;
 
-    return this.businessCitiesService.getRequirementsByBusinessCities(
-      req.user.id,
-      carTypeArray,
-      pickupDateFrom,
-      pickupDateTo,
-      page,
-      limit,
-    );
+    const data =
+      await this.businessCitiesService.getRequirementsByBusinessCities(
+        req.user.id,
+        carTypeArray,
+        pickupDateFrom,
+        pickupDateTo,
+        page,
+        limit,
+      );
+    return successResponse(data, 'Requirements fetched successfully');
   }
-
 
   @Get('my-requirements')
   @ApiOperation({ summary: 'List requirements posted by the logged-in user' })
@@ -149,12 +164,12 @@ export class RequirementController {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    const data = await this.service.getMyRequirements(req.user.id, status, fromDate, toDate);
-
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Requirements fetched successfully',
-      data,
-    };
+    const data = await this.service.getMyRequirements(
+      req.user.id,
+      status,
+      fromDate,
+      toDate,
+    );
+    return successResponse(data, 'Requirements fetched successfully');
   }
 }

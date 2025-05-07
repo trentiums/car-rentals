@@ -217,7 +217,6 @@ model PostPhoto {
   @@index([postId])
 }
 
-
 model Like {
   id        String   @id @default(uuid()) @db.VarChar(64)
   postId    String   @db.VarChar(64)

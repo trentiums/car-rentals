@@ -1,27 +1,25 @@
 import { HttpStatus } from '@nestjs/common';
 
 export function successResponse(
-    data: any = null,
-    message = 'Success',
-    statusCode: number = HttpStatus.OK,
+  data: any = null,
+  message = 'Success',
+  statusCode: number = HttpStatus.OK,
 ) {
-    return {
-        statusCode,
-        status: true,
-        message,
-        data,
-    };
+  return {
+    statusCode,
+    message,
+    data,
+  };
 }
 
 export function errorResponse(
-    message = 'Something went wrong',
-    statusCode: number = HttpStatus.BAD_REQUEST,
-    error: any = null,
+  message = 'Something went wrong',
+  statusCode: number = HttpStatus.BAD_REQUEST,
+  error: any = null,
 ) {
-    return {
-        statusCode,
-        status: false,
-        message,
-        error,
-    };
+  return {
+    statusCode,
+    message,
+    error,
+  };
 }

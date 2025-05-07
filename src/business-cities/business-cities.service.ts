@@ -8,7 +8,7 @@ import { AddBusinessCityDto } from './dto/add-business-city.dto';
 
 @Injectable()
 export class BusinessCitiesService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async addBusinessCity(dto: AddBusinessCityDto, userId: string) {
     // Check if user exists
@@ -170,16 +170,11 @@ export class BusinessCitiesService {
     ]);
 
     return {
-      statusCode: 200,
-      message: 'Requirements fetched successfully',
-      data: {
-        requirements,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      requirements,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
     };
   }
-
 }

@@ -6,6 +6,7 @@ import {
   UseGuards,
   Get,
   UnauthorizedException,
+  HttpStatus,
 } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
@@ -16,6 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { successResponse } from 'src/common/response.helper';
 
 @ApiBearerAuth()
 @ApiTags('subscription')
@@ -31,22 +33,28 @@ export class SubscriptionController {
     description: 'Subscription created successfully',
   })
   @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
-  create(@Body() dto: CreateSubscriptionDto, @Req() req) {
+  async create(@Body() dto: CreateSubscriptionDto, @Req() req) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.createSubscription(dto, req.user.id);
+    const data = await this.service.createSubscription(dto, req.user.id);
+    return successResponse(
+      data,
+      'Subscription created successfully',
+      HttpStatus.CREATED,
+    );
   }
 
   @Get('active')
   @ApiOperation({ summary: 'Get active subscription for the current user' })
   @ApiResponse({ status: 200, description: 'Active subscription found' })
   @ApiResponse({ status: 404, description: 'No active subscription found' })
-  getActive(@Req() req) {
+  async getActive(@Req() req) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.getActiveSubscription(req.user.id);
+    const data = await this.service.getActiveSubscription(req.user.id);
+    return successResponse(data, 'Active subscription found');
   }
 
   @Post('cancel')
@@ -56,17 +64,19 @@ export class SubscriptionController {
     description: 'Subscription cancelled successfully',
   })
   @ApiResponse({ status: 404, description: 'No active subscription found' })
-  cancel(@Req() req) {
+  async cancel(@Req() req) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.cancelSubscription(req.user.id);
+    const data = await this.service.cancelSubscription(req.user.id);
+    return successResponse(data, 'Subscription cancelled successfully');
   }
 
   @Get('plans')
   @ApiOperation({ summary: 'Get available subscription plans' })
   @ApiResponse({ status: 200, description: 'List of subscription plans' })
-  getPlans() {
-    return this.service.getSubscriptionPlans();
+  async getPlans() {
+    const data = await this.service.getSubscriptionPlans();
+    return successResponse(data, 'Subscription plans retrieved successfully');
   }
 }

@@ -9,6 +9,7 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CitiesService } from './cities.service';
 import { CitySearchDto, CityResponseDto } from './dto/city-suggestion.dto';
+import { successResponse } from 'src/common/response.helper';
 
 @ApiTags('cities')
 @Controller('cities')
@@ -25,13 +26,7 @@ export class CitiesController {
     isArray: true,
   })
   async getCitySuggestions(@Query() searchDto: CitySearchDto) {
-    const suggestions = await this.citiesService.getCitySuggestions(
-      searchDto.query,
-    );
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Cities are fetched successfully',
-      data: suggestions,
-    };
+    const data = await this.citiesService.getCitySuggestions(searchDto.query);
+    return successResponse(data, 'Cities are fetched successfully');
   }
 }

@@ -2,6 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { OtpService } from './otp.service';
 import { SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
+import { successResponse } from 'src/common/response.helper';
 
 @ApiTags('otp')
 @Controller('otp')
@@ -15,7 +16,8 @@ export class OtpController {
     description: 'OTP sent successfully',
   })
   async sendOtp(@Body() sendOtpDto: SendOtpDto) {
-    return this.otpService.sendOtp(sendOtpDto.phoneNumber);
+    const data = await this.otpService.sendOtp(sendOtpDto.phoneNumber);
+    return successResponse(data, 'OTP sent successfully');
   }
 
   @Post('verify')
@@ -25,9 +27,10 @@ export class OtpController {
     description: 'OTP verified successfully',
   })
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.otpService.verifyOtp(
+    const data = await this.otpService.verifyOtp(
       verifyOtpDto.sessionId,
       verifyOtpDto.otp,
     );
+    return successResponse(data, 'OTP verified successfully');
   }
 }
