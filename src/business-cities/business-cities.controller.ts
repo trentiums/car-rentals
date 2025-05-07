@@ -6,10 +6,10 @@ import {
   UseGuards,
   Get,
   Delete,
-  Param,
   UnauthorizedException,
   Query,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
 import { BusinessCitiesService } from './business-cities.service';
 import { AddBusinessCityDto } from './dto/add-business-city.dto';
@@ -20,62 +20,106 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 
 @ApiBearerAuth()
 @ApiTags('business-cities')
 @UseGuards(JwtAuthGuard)
 @Controller('business-cities')
 export class BusinessCitiesController {
-  constructor(private readonly service: BusinessCitiesService) { }
+  constructor(private readonly service: BusinessCitiesService) {}
 
   @Post()
   @ApiOperation({ summary: "Add a city to user's business cities" })
-  @ApiResponse({ status: HttpStatus.CREATED, description: 'City added successfully' })
-  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Bad request or validation failed' })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-  addBusinessCity(@Body() dto: AddBusinessCityDto, @Req() req) {
-    if (!req.user.id) {
-      throw new UnauthorizedException('User not logged in');
-    }
-    return this.service.addBusinessCity(dto, req.user.id);
-  }
-
-  @Delete()
-  @ApiOperation({ summary: "Remove a city from user's business cities" })
-  @ApiResponse({ status: HttpStatus.OK, description: 'City removed successfully' })
   @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'User or business city not found',
+    status: HttpStatus.CREATED,
+    description: 'City added successfully',
   })
-  removeBusinessCity(
-    @Query('cityName') cityName: string,
-    @Query('state') state: string,
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Bad request or validation failed',
+  })
+  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+  async addBusinessCity(
+    @Body() dto: AddBusinessCityDto,
     @Req() req,
+    @Res() res: Response,
   ) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.removeBusinessCity(cityName, state, req.user.id);
+    const data = await this.service.addBusinessCity(dto, req.user.id);
+    return res.status(HttpStatus.CREATED).json({
+      statusCode: HttpStatus.CREATED,
+      message: 'City added successfully',
+      data,
+    });
+  }
+
+  @Delete()
+  @ApiOperation({ summary: "Remove a city from user's business cities" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'City removed successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'User or business city not found',
+  })
+  async removeBusinessCity(
+    @Query('cityName') cityName: string,
+    @Query('state') state: string,
+    @Req() req,
+    @Res() res: Response,
+  ) {
+    if (!req.user.id) {
+      throw new UnauthorizedException('User not logged in');
+    }
+    const data = await this.service.removeBusinessCity(
+      cityName,
+      state,
+      req.user.id,
+    );
+    return res.status(HttpStatus.OK).json({
+      statusCode: HttpStatus.OK,
+      message: 'City removed successfully',
+      data,
+    });
   }
 
   @Get()
   @ApiOperation({ summary: 'Get all business cities for the current user' })
-  @ApiResponse({ status: HttpStatus.OK, description: 'List of business cities' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of business cities',
+  })
   @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-  getUserBusinessCities(@Req() req) {
+  async getUserBusinessCities(@Req() req, @Res() res: Response) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.getUserBusinessCities(req.user.id);
+    const data = await this.service.getUserBusinessCities(req.user.id);
+    return res.status(HttpStatus.OK).json({
+      statusCode: HttpStatus.OK,
+      message: 'Fetched business cities successfully',
+      data,
+    });
   }
 
   @Get('requirements')
   @ApiOperation({ summary: "Get requirements from user's business cities" })
   @ApiResponse({ status: HttpStatus.OK, description: 'List of requirements' })
-  getRequirementsByBusinessCities(@Req() req) {
+  async getRequirementsByBusinessCities(@Req() req, @Res() res: Response) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
     }
-    return this.service.getRequirementsByBusinessCities(req.user.id);
+    const data = await this.service.getRequirementsByBusinessCities(
+      req.user.id,
+    );
+    return res.status(HttpStatus.OK).json({
+      statusCode: HttpStatus.OK,
+      message: 'Fetched requirements successfully',
+      data,
+    });
   }
 }

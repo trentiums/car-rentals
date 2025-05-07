@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { S3Service } from 'src/common/s3.service';
@@ -11,9 +8,13 @@ export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
-  ) { }
+  ) {}
 
-  async createPost(userId: string, createPostDto: CreatePostDto, files: Express.Multer.File[]) {
+  async createPost(
+    userId: string,
+    createPostDto: CreatePostDto,
+    files: Express.Multer.File[],
+  ) {
     const photoData: { file: Buffer; name: string; type: string }[] = [];
 
     if (files && files.length > 0) {
@@ -81,7 +82,8 @@ export class PostsService {
               id: true,
             },
           },
-          saves: {  // Assuming this is the relation for saved posts
+          saves: {
+            // Assuming this is the relation for saved posts
             where: {
               userId: String(userId),
             },
@@ -121,7 +123,6 @@ export class PostsService {
       },
     };
   }
-
 
   async getPostById(id: string) {
     const post = await this.prisma.post.findUnique({
