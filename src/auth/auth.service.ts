@@ -7,7 +7,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OtpService } from '../otp/otp.service';
 import { JwtService } from '@nestjs/jwt';
 import {
   RegisterDto,
@@ -15,15 +14,16 @@ import {
   VerifyOtpForAuthDto,
 } from './dto/auth.dto';
 import { ConfigService } from '@nestjs/config';
+import { WhatsAppService } from '../common/whatsapp.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
-    private otpService: OtpService,
+    private whatsAppService: WhatsAppService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto) {
     // Check if user already exists
@@ -43,7 +43,7 @@ export class AuthService {
     }
 
     // Send OTP
-    const otpResponse = await this.otpService.sendOtp(registerDto.phoneNumber);
+    const otpResponse = await this.whatsAppService.sendOtp(registerDto.phoneNumber, 'REGISTRATION');
 
     // Create unverified user
     const user = await this.prisma.user.create({
@@ -61,52 +61,16 @@ export class AuthService {
       },
     });
 
-    // Store OTP verification record
-    await this.prisma.otpVerification.create({
-      data: {
-        phoneNumber: registerDto.phoneNumber,
-        sessionId: otpResponse.sessionId,
-        purpose: 'REGISTRATION',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      },
-    });
-
     return { sessionId: otpResponse.sessionId };
   }
 
   async verifyRegistration(verifyDto: VerifyOtpForAuthDto) {
     // Verify OTP
-    const otpVerifyResult = await this.otpService.verifyOtp(
-      verifyDto.sessionId,
+    await this.whatsAppService.verifyOtp(
+      verifyDto.phoneNumber,
       verifyDto.otp,
+      'REGISTRATION'
     );
-
-    if (otpVerifyResult.Status === 'Error') {
-      throw new BadRequestException('OTP verification failed');
-    }
-
-    // Update OTP verification record
-    const otpVerification = await this.prisma.otpVerification.findFirst({
-      where: {
-        phoneNumber: verifyDto.phoneNumber,
-        sessionId: verifyDto.sessionId,
-        purpose: 'REGISTRATION',
-        verified: false,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
-    if (!otpVerification) {
-      throw new BadRequestException('Invalid or expired OTP session');
-    }
-
-    // Mark OTP as verified
-    await this.prisma.otpVerification.update({
-      where: { id: otpVerification.id },
-      data: { verified: true },
-    });
 
     // Get user with their city and state
     const user = await this.prisma.user.findUnique({
@@ -164,54 +128,18 @@ export class AuthService {
     }
 
     // Send OTP
-    const otpResponse = await this.otpService.sendOtp(loginDto.phoneNumber);
-
-    // Store OTP verification record
-    await this.prisma.otpVerification.create({
-      data: {
-        phoneNumber: loginDto.phoneNumber,
-        sessionId: otpResponse.sessionId,
-        purpose: 'LOGIN',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      },
-    });
+    const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber, 'LOGIN');
 
     return { sessionId: otpResponse.sessionId };
   }
 
   async verifyLogin(verifyDto: VerifyOtpForAuthDto) {
     // Verify OTP
-    const otpVerifyResult = await this.otpService.verifyOtp(
-      verifyDto.sessionId,
+    await this.whatsAppService.verifyOtp(
+      verifyDto.phoneNumber,
       verifyDto.otp,
+      'LOGIN'
     );
-
-    if (otpVerifyResult.Status === 'Error') {
-      throw new BadRequestException('OTP verification failed');
-    }
-
-    // Update OTP verification record
-    const otpVerification = await this.prisma.otpVerification.findFirst({
-      where: {
-        phoneNumber: verifyDto.phoneNumber,
-        sessionId: verifyDto.sessionId,
-        purpose: 'LOGIN',
-        verified: false,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-    });
-
-    if (!otpVerification) {
-      throw new BadRequestException('Invalid or expired OTP session');
-    }
-
-    // Mark OTP as verified
-    await this.prisma.otpVerification.update({
-      where: { id: otpVerification.id },
-      data: { verified: true },
-    });
 
     // Get user
     const user = await this.prisma.user.findUnique({
@@ -246,17 +174,8 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    const otpResponse = await this.otpService.sendOtp(phoneNumber);
-
-    // Store OTP verification record
-    await this.prisma.otpVerification.create({
-      data: {
-        phoneNumber,
-        sessionId: otpResponse.sessionId,
-        purpose: user.isVerified ? 'LOGIN' : 'REGISTRATION',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      },
-    });
+    const purpose = user.isVerified ? 'LOGIN' : 'REGISTRATION';
+    const otpResponse = await this.whatsAppService.sendOtp(phoneNumber, purpose);
 
     return { sessionId: otpResponse.sessionId };
   }

@@ -4,7 +4,6 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { S3Service } from 'src/common/s3.service';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
-import * as fs from 'fs';
 
 @Injectable()
 export class PostsService {
@@ -25,26 +24,20 @@ export class PostsService {
     files: Express.Multer.File[],
   ) {
     const photoData: {
-      file: Buffer;
+      url: string;
       name: string;
       type: string;
-      url?: string;
     }[] = [];
 
     if (files && files.length > 0) {
       for (const file of files) {
-        // Store file in memory and generate URL for access
-        const fileUrl = `http://localhost:3000/files/posts/${file.filename}`;
-
-        // Read the file from disk since it's stored there
-        const filePath = join(process.cwd(), 'uploads', 'posts', file.filename);
-        const fileBuffer = await fs.promises.readFile(filePath);
+        // Generate URL for the uploaded file
+        const fileUrl = `http://localhost:3001/files/posts/${file.filename}`;
 
         photoData.push({
-          file: fileBuffer,
+          url: fileUrl,
           name: file.originalname,
           type: file.mimetype,
-          url: fileUrl,
         });
       }
     }
@@ -91,6 +84,7 @@ export class PostsService {
               id: true,
               name: true,
               type: true,
+              url: true
             },
           },
           likes: {
@@ -139,7 +133,7 @@ export class PostsService {
     };
   }
 
-  async getPostById(id: string) {
+  async getPostById(id: string, userId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
       include: {
@@ -149,15 +143,47 @@ export class PostsService {
             fullName: true,
           },
         },
-        photos: true,
+        photos: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            url: true
+          },
+        },
+        likes: {
+          where: {
+            userId: String(userId),
+          },
+          select: {
+            id: true,
+          },
+        },
+        saves: {
+          where: {
+            userId: String(userId),
+          },
+          select: {
+            id: true,
+          },
+        },
+        _count: {
+          select: {
+            likes: true,
+            shares: true,
+          },
+        },
       },
     });
 
     if (!post) {
-      throw new NotFoundException('Post not found');
+      throw new NotFoundException('Post not founds');
     }
 
-    return post;
+    return {
+      ...post, hasLiked: post.likes.length > 0,
+      hasSaved: post.saves.length > 0,
+    };
   }
 
   async deletePost(id: string, userId: string) {
@@ -285,39 +311,59 @@ export class PostsService {
     };
   }
 
-  async getSavedPosts(userId: string, page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
-    const [saves, total] = await Promise.all([
-      this.prisma.save.findMany({
-        where: { userId },
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          post: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
+  async getSavedPosts(userId: string) {
+    const saves = await this.prisma.save.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        post: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
               },
-              photos: true,
+            },
+            photos: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                url: true
+              },
+            },
+            likes: {
+              where: {
+                userId: String(userId),
+              },
+              select: {
+                id: true,
+              },
+            },
+            saves: {
+              where: {
+                userId: String(userId),
+              },
+              select: {
+                id: true,
+              },
+            },
+            _count: {
+              select: {
+                likes: true,
+                shares: true,
+                saves: true
+              },
             },
           },
         },
-      }),
-      this.prisma.save.count({
-        where: { userId },
-      }),
-    ]);
+      },
+    });
 
     return {
       posts: saves.map((save) => save.post),
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      total: saves.length,
     };
   }
+
 }

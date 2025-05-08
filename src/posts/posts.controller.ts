@@ -44,7 +44,7 @@ const storage = diskStorage({
 @UseGuards(JwtAuthGuard)
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(private readonly postsService: PostsService) { }
 
   @Post()
   @UseInterceptors(FilesInterceptor('photos', 10, { storage }))
@@ -80,12 +80,24 @@ export class PostsController {
     return successResponse(data, 'Posts fetched successfully');
   }
 
+  @Get('/saved')
+  @ApiOperation({ summary: 'Get saved posts' })
+  @ApiResponse({ status: 200, description: 'Return saved posts' })
+  async getSavedPosts(
+    @Req() req
+  ) {
+    const data = await this.postsService.getSavedPosts(
+      req.user.id
+    );
+    return successResponse(data, 'Saved posts fetched successfully');
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a post by id' })
   @ApiResponse({ status: 200, description: 'Return the post' })
   @ApiResponse({ status: 404, description: 'Post not found' })
-  async getPostById(@Param('id') id: string) {
-    const data = await this.postsService.getPostById(id);
+  async getPostById(@Req() req, @Param('id') id: string) {
+    const data = await this.postsService.getPostById(id, req.user.id);
     return successResponse(data, 'Post fetched successfully');
   }
 
@@ -134,19 +146,4 @@ export class PostsController {
     return successResponse(data, 'User posts fetched successfully');
   }
 
-  @Get('saved')
-  @ApiOperation({ summary: 'Get saved posts' })
-  @ApiResponse({ status: 200, description: 'Return saved posts' })
-  async getSavedPosts(
-    @Req() req,
-    @Query('page') page: number = 1,
-    @Query('limit') limit: number = 10,
-  ) {
-    const data = await this.postsService.getSavedPosts(
-      req.user.id,
-      page,
-      limit,
-    );
-    return successResponse(data, 'Saved posts fetched successfully');
-  }
 }

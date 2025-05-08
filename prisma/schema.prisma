@@ -144,6 +144,21 @@ model Subscription {
   @@index([userId])
 }
 
+model SubscriptionPlan {
+  id          String   @id @default(uuid()) @db.VarChar(64)
+  planName    String   @db.VarChar(255)
+  duration    String   @db.VarChar(100)
+  price       Float
+  description String   @db.Text
+  features    Json     // Array of features
+  benefits    Json     // Array of benefits
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+}
+
 model PromoCode {
   id                String   @id @default(uuid()) @db.VarChar(64)
   code              String   @unique @db.VarChar(64)
@@ -207,10 +222,9 @@ model PostPhoto {
   id        String   @id @default(uuid()) @db.VarChar(64)
   postId    String   @db.VarChar(64)
   post      Post     @relation(fields: [postId], references: [id])
-  file      Bytes    // Stores the binary file content
-  url       String?
-  name      String   @db.VarChar(255) // Optional: original file name
-  type      String   @db.VarChar(100) // Optional: MIME type (e.g., image/jpeg)
+  url       String   @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  type      String   @db.VarChar(100)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -253,6 +267,20 @@ model Save {
   @@unique([postId, userId])
   @@index([postId])
   @@index([userId])
+}
+
+model WhatsAppOtp {
+  id        String   @id @default(uuid()) @db.VarChar(64)
+  phoneNumber String @db.VarChar(64)
+  otp       String   @db.VarChar(64)
+  purpose   String   @db.VarChar(64)
+  verified  Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phoneNumber, purpose])
+  @@index([expiresAt])
 }
 
 enum Role {

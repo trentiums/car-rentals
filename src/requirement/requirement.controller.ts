@@ -37,7 +37,7 @@ export class RequirementController {
   constructor(
     private readonly service: RequirementService,
     private readonly businessCitiesService: BusinessCitiesService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Create a new requirement' })
@@ -152,14 +152,16 @@ export class RequirementController {
   @Get('my-requirements')
   @ApiOperation({ summary: 'List requirements posted by the logged-in user' })
   @ApiQuery({ name: 'status', required: false, type: String })
-  @ApiQuery({ name: 'fromDate', required: false, type: String }) // e.g., 2024-01-01
-  @ApiQuery({ name: 'toDate', required: false, type: String }) // e.g., 2024-01-31
+  @ApiQuery({ name: 'fromDate', required: false, type: String })
+  @ApiQuery({ name: 'toDate', required: false, type: String })
   @ApiResponse({ status: 200, description: 'List returned successfully' })
+  @ApiQuery({ name: 'isReturnType', required: false, type: Boolean })
   async listMyRequirements(
     @Req() req,
     @Query('status') status?: string,
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
+    @Query('isReturnType') isReturnType?: boolean,
   ) {
     if (!req.user.id) {
       throw new UnauthorizedException('User not logged in');
@@ -169,7 +171,34 @@ export class RequirementController {
       status,
       fromDate,
       toDate,
+      isReturnType
     );
     return successResponse(data, 'Requirements fetched successfully');
+  }
+
+  @Get('available-requirements')
+  @ApiOperation({ summary: 'List available requirements' })
+  @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'fromDate', required: false, type: String })
+  @ApiQuery({ name: 'toDate', required: false, type: String })
+  @ApiResponse({ status: 200, description: 'List returned successfully' })
+  async getAvailableRequirements(@Req() req,
+    @Query('status') status?: string,
+    @Query('fromDate') fromDate?: string,
+    @Query('toDate') toDate?: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,) {
+    if (!req.user.id) {
+      throw new UnauthorizedException('User not logged in');
+    }
+    const data = await this.service.getAvailabeRequirements(
+      req.user.id,
+      status,
+      fromDate,
+      toDate,
+      page,
+      limit,
+    );
+    return successResponse(data, 'Available requirements fetched successfully');
   }
 }

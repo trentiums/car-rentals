@@ -13,7 +13,7 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
-import { UploadDocumentDto } from './dto/upload-document.dto';
+import { UploadDocumentDto, UploadDocumentResponseDto } from './dto/upload-document.dto';
 import { ReviewDocumentDto } from './dto/review-document.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import {
@@ -21,6 +21,8 @@ import {
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { RoleGuard } from 'src/auth/guards/role.guard';
 import { Roles } from 'src/auth/decorators/roles.decorator';
@@ -46,12 +48,34 @@ const storage = diskStorage({
 @UseGuards(JwtAuthGuard)
 @Controller('documents')
 export class DocumentsController {
-  constructor(private readonly service: DocumentsService) {}
+  constructor(private readonly service: DocumentsService) { }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('document', { storage }))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload a document for verification' })
-  @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        document: {
+          type: 'string',
+          format: 'binary',
+          description: 'The document file to upload (PDF, JPG, PNG)',
+        },
+        documentType: {
+          type: 'string',
+          enum: ['DRIVERS_LICENSE', 'PASSPORT', 'ID_CARD'],
+          description: 'Type of document being uploaded',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Document uploaded successfully',
+    type: UploadDocumentResponseDto,
+  })
   @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
   async uploadDocument(
     @Body() dto: UploadDocumentDto,

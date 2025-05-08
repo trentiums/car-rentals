@@ -14,7 +14,7 @@ import * as dayjs from 'dayjs';
 
 @Injectable()
 export class RequirementService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async createRequirement(dto: CreateRequirementDto, userId: string) {
     const now = dayjs();
@@ -200,8 +200,8 @@ export class RequirementService {
       return this.prisma.requirement.create({
         data: {
           postedById: userId,
-          fromCity: originalRequirement.toCity, // Swap cities for return trip
-          toCity: originalRequirement.fromCity,
+          fromCity: originalRequirement.fromCity,
+          toCity: originalRequirement.toCity,
           pickupDate: dto.returnPickupDate,
           pickupTime: dto.returnPickupTime,
           carType: originalRequirement.carType,
@@ -256,10 +256,12 @@ export class RequirementService {
     status?: string,
     fromDate?: string,
     toDate?: string,
+    isReturnType?: boolean
   ) {
     const filters: any = {
       isDeleted: false,
       OR: [{ postedById: userId }, { assignedToId: userId }],
+      isReturnTrip: isReturnType,
     };
 
     if (status) {
@@ -278,11 +280,75 @@ export class RequirementService {
         );
       }
     }
-    
+
 
     return this.prisma.requirement.findMany({
       where: filters,
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async getAvailabeRequirements(userId: string,
+    status?: string,
+    fromDate?: string,
+    toDate?: string,
+    page: number = 1,
+    limit: number = 10,) {
+    const filters: any = {
+      isDeleted: false,
+    };
+
+    if (status) {
+      filters.status = status.toUpperCase();
+    }
+    if (fromDate || toDate) {
+      filters.createdAt = {};
+      if (fromDate) {
+        filters.createdAt.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        // Add time to include the full day
+        filters.createdAt.lte = new Date(
+          new Date(toDate).setHours(23, 59, 59, 999),
+        );
+      }
+    }
+    const whereConditions: any = {
+      AND: [
+        { isReturnTrip: true },
+        filters,
+      ],
+
+    };
+    const skip = (page - 1) * limit;
+    const [requirements, total] = await Promise.all([
+      this.prisma.requirement.findMany({
+        where: whereConditions,
+        include: {
+          postedBy: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
+              isVerified: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.requirement.count({
+        where: whereConditions,
+      }),
+    ]);
+    return {
+      requirements,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
 }

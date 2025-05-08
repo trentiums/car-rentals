@@ -4,29 +4,29 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { PrismaModule } from '../prisma/prisma.module';
-import { OtpModule } from '../otp/otp.module';
+import { WhatsAppModule } from '../common/whatsapp.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
-import { OtpService } from '../otp/otp.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RoleGuard } from './guards/role.guard';
+import { WhatsAppService } from 'src/common/whatsapp.service';
 
 @Module({
   imports: [
     PrismaModule,
-    OtpModule,
+    WhatsAppModule,
     PassportModule,
     ConfigModule.forRoot({
       isGlobal: true,  // If you want the configuration to be available globally
     }),
     JwtModule.registerAsync({
-      imports: [ConfigModule], // Import ConfigModule here to use it
-      inject: [ConfigService], // Inject ConfigService into the factory
+      imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-default-secret-key',
-        signOptions: { expiresIn: '1d' }, // You can adjust the expiry time as needed
+        secret: configService.get('JWT_SECRET'),
+        signOptions: { expiresIn: '30d' },
       }),
+      inject: [ConfigService],
     }),
   ],
   controllers: [AuthController],
@@ -34,20 +34,20 @@ import { RoleGuard } from './guards/role.guard';
     AuthService,
     JwtStrategy,
     PrismaService,
-    OtpService,
     JwtAuthGuard,
     ConfigService,
     JwtService,
-    RoleGuard
+    RoleGuard,
+    WhatsAppService
   ],
   exports: [
     AuthService,
     PrismaService,
     JwtStrategy,
-    OtpService,
     JwtModule,
     JwtAuthGuard,
-    RoleGuard
+    RoleGuard,
+    WhatsAppService
   ]
 })
 export class AuthModule { }

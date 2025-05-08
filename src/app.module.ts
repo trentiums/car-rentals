@@ -17,6 +17,7 @@ import { SubscriptionModule } from './subscription/subscription.module';
 import { BusinessCitiesModule } from './business-cities/business-cities.module';
 import { PostsModule } from './posts/posts.module';
 import { SettingsModule } from './settings/settings.module';
+import { WhatsAppModule } from './common/whatsapp.module';
 
 @Module({
   imports: [
@@ -38,8 +39,9 @@ import { SettingsModule } from './settings/settings.module';
     BusinessCitiesModule,
     PostsModule,
     SettingsModule,
+    WhatsAppModule,
   ],
   controllers: [AppController, RequirementController],
   providers: [AppService, RequirementService],
 })
-export class AppModule {}
+export class AppModule { }
