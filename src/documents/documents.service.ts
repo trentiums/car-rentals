@@ -45,22 +45,58 @@ export class DocumentsService {
     });
   }
 
-  async getPendingDocuments() {
-    return this.prisma.userDocument.findMany({
-      where: { status: 'PENDING' },
-      include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            phoneNumber: true,
+  async getPendingDocuments(page: number, pageSize: number, search: string) {
+    const skip = (page - 1) * pageSize;
+    const take = pageSize;
 
-          },
+    // Build search filter for fullName if search query is provided
+    const searchFilter = search ? {
+      fullName: {
+        contains: search,
+      },
+    } : {};
+
+    const pendingDocuments = await this.prisma.user.findMany({
+      where: {
+        documents: {
+          some: { status: 'PENDING' },
+        },
+        ...searchFilter, // Add the search filter for fullName if search is provided
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phoneNumber: true,
+        documents: {
+          where: { status: 'PENDING' },
+          orderBy: { createdAt: 'desc' },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      skip, // Skip records for pagination
+      take, // Limit the number of records for pagination
     });
+
+    const totalCount = await this.prisma.user.count({
+      where: {
+        documents: {
+          some: { status: 'PENDING' },
+        },
+        ...searchFilter, // Add the search filter for total count
+      },
+    });
+
+    return {
+      data: pendingDocuments,
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      currentPage: page,
+    };
   }
+
+
 
   async reviewDocument(
     adminId: string,

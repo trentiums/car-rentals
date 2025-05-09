@@ -11,6 +11,7 @@ import {
   HttpStatus,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { UploadDocumentDto, UploadDocumentResponseDto } from './dto/upload-document.dto';
@@ -112,10 +113,15 @@ export class DocumentsController {
     status: 200,
     description: 'Pending documents retrieved successfully',
   })
-  async getPendingDocuments() {
-    const data = await this.service.getPendingDocuments();
+  async getPendingDocuments(
+    @Query('page') page: number = 1,         // Page number (default is 1)
+    @Query('pageSize') pageSize: number = 10, // Items per page (default is 10)
+    @Query('search') search: string = '',     // Search query for fullName
+  ) {
+    const data = await this.service.getPendingDocuments(page, pageSize, search);
     return successResponse(data, 'Pending documents retrieved successfully');
   }
+
 
   @Put(':id/review')
   @UseGuards(RoleGuard)
