@@ -1,13 +1,21 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import { DocumentStatus } from '@prisma/client';
 
 export class ReviewDocumentDto {
-    @ApiProperty({ enum: DocumentStatus, description: 'New status for the document' })
+    @ApiProperty({
+        enum: DocumentStatus,
+        description: 'Document status (APPROVED or REJECTED)',
+        example: DocumentStatus.APPROVED,
+    })
     @IsEnum(DocumentStatus)
     status: DocumentStatus;
 
-    @ApiPropertyOptional({ description: 'Reason for rejection if status is REJECTED' })
+    @ApiProperty({
+        description: 'Reason for rejection (required only if status is REJECTED)',
+        example: 'Document is blurry',
+        required: false,
+    })
     @IsOptional()
     @IsString()
     rejectionReason?: string;

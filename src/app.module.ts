@@ -18,6 +18,8 @@ import { BusinessCitiesModule } from './business-cities/business-cities.module';
 import { PostsModule } from './posts/posts.module';
 import { SettingsModule } from './settings/settings.module';
 import { WhatsAppModule } from './common/whatsapp.module';
+import { AdminModule } from './admin/admin.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { WhatsAppModule } from './common/whatsapp.module';
     PostsModule,
     SettingsModule,
     WhatsAppModule,
+    AdminModule,
+    UsersModule,
   ],
   controllers: [AppController, RequirementController],
   providers: [AppService, RequirementService],

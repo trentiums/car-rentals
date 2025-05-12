@@ -105,7 +105,7 @@ export class DocumentsController {
     return successResponse(data, 'Documents retrieved successfully');
   }
 
-  @Get('pending')
+  @Get()
   @UseGuards(RoleGuard)
   @Roles('ADMIN')
   @ApiOperation({ summary: 'Get all pending documents for admin review' })
@@ -114,11 +114,12 @@ export class DocumentsController {
     description: 'Pending documents retrieved successfully',
   })
   async getPendingDocuments(
-    @Query('page') page: number = 1,         // Page number (default is 1)
-    @Query('pageSize') pageSize: number = 10, // Items per page (default is 10)
-    @Query('search') search: string = '',     // Search query for fullName
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 10,
+    @Query('search') search: string = '',
+    @Query('status') status: string = '',
   ) {
-    const data = await this.service.getPendingDocuments(page, pageSize, search);
+    const data = await this.service.getPendingDocuments(page, pageSize, search, status);
     return successResponse(data, 'Pending documents retrieved successfully');
   }
 

@@ -6,6 +6,7 @@ import {
   VerifyOtpForAuthDto,
   ResendOtpDto,
 } from './dto/auth.dto';
+import { AdminLoginDto, AdminVerifyOtpDto } from './dto/admin-auth.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { successResponse } from 'src/common/response.helper';
 
@@ -77,5 +78,28 @@ export class AuthController {
   async resendOtp(@Body() resendOtpDto: ResendOtpDto) {
     const data = await this.authService.resendOtp(resendOtpDto.phoneNumber);
     return successResponse(data, 'OTP resent successfully');
+  }
+
+  @Post('admin/login')
+  @ApiOperation({ summary: 'Initiate admin login with OTP' })
+  @ApiResponse({ status: HttpStatus.OK, description: 'OTP sent successfully' })
+  @ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Unauthorized' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin access required' })
+  async adminLogin(@Body() loginDto: AdminLoginDto) {
+    const data = await this.authService.adminLogin(loginDto);
+    return successResponse(data, 'OTP sent successfully');
+  }
+
+  @Post('admin/verify-login')
+  @ApiOperation({ summary: 'Verify OTP for admin login' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Admin login completed successfully',
+  })
+  @ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid OTP' })
+  @ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin access required' })
+  async adminVerifyLogin(@Body() verifyDto: AdminVerifyOtpDto) {
+    const data = await this.authService.adminVerifyLogin(verifyDto);
+    return successResponse(data, 'Admin login completed successfully');
   }
 }

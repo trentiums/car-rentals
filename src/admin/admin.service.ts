@@ -12,9 +12,12 @@ export class AdminService {
             activeUsers,
             blockedUsers,
             pendingDocuments,
-            totalRentals,
-            activeRentals,
-            totalRevenue,
+            totalDocuments,
+            totalApprovedDocuments,
+            totalRejectedDocuments,
+            totalRequirements,
+            totalPosts,
+
         ] = await Promise.all([
             // Total users count
             this.prisma.user.count(),
@@ -34,19 +37,25 @@ export class AdminService {
                 where: { status: 'PENDING' },
             }),
 
+            // Total documents count
+            this.prisma.userDocument.count(),
+
+            // Total approved documents count
+            this.prisma.userDocument.count({
+                where: { status: 'APPROVED' },
+            }),
+
+            // Total rejected documents count       
+            this.prisma.userDocument.count({
+                where: { status: 'REJECTED' },
+            }),
+
             // Total rentals count
-            this.prisma.rental.count(),
+            this.prisma.requirement.count(),
 
             // Active rentals count
-            this.prisma.rental.count({
-                where: { status: RentalStatus.ACTIVE },
-            }),
+            this.prisma.post.count(),
 
-            // Total revenue (sum of all completed rentals)
-            this.prisma.rental.aggregate({
-                where: { status: RentalStatus.COMPLETED },
-                _sum: { totalAmount: true },
-            }),
         ]);
 
         return {
@@ -54,9 +63,11 @@ export class AdminService {
             activeUsers,
             blockedUsers,
             pendingDocuments,
-            totalRentals,
-            activeRentals,
-            totalRevenue: totalRevenue._sum.totalAmount || 0,
+            totalDocuments,
+            totalApprovedDocuments,
+            totalRejectedDocuments,
+            totalRequirements,
+            totalPosts
         };
     }
 

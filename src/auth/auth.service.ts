@@ -13,8 +13,10 @@ import {
   InitiateLoginDto,
   VerifyOtpForAuthDto,
 } from './dto/auth.dto';
+import { AdminLoginDto, AdminVerifyOtpDto } from './dto/admin-auth.dto';
 import { ConfigService } from '@nestjs/config';
 import { WhatsAppService } from '../common/whatsapp.service';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -161,6 +163,7 @@ export class AuthService {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        isVerified: user.isVerified,
       },
     };
   }
@@ -178,6 +181,69 @@ export class AuthService {
     const otpResponse = await this.whatsAppService.sendOtp(phoneNumber, purpose);
 
     return { sessionId: otpResponse.sessionId };
+  }
+
+  async adminLogin(loginDto: AdminLoginDto) {
+    // Find user
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber: loginDto.phoneNumber },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Check if user is admin
+    if (user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Access denied. Admin privileges required.');
+    }
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      throw new ForbiddenException('Please complete your registration first');
+    }
+
+    // Send OTP
+    const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber, 'LOGIN');
+
+    return { sessionId: otpResponse.sessionId };
+  }
+
+  async adminVerifyLogin(verifyDto: AdminVerifyOtpDto) {
+    // Verify OTP
+    await this.whatsAppService.verifyOtp(
+      verifyDto.phoneNumber,
+      verifyDto.otp,
+      'LOGIN'
+    );
+
+    // Get user
+    const user = await this.prisma.user.findUnique({
+      where: { phoneNumber: verifyDto.phoneNumber },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify admin role
+    if (user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Access denied. Admin privileges required.');
+    }
+
+    // Generate JWT token
+    const token = await this.generateToken(user.id);
+
+    return {
+      token,
+      user: {
+        id: user.id,
+        phoneNumber: user.phoneNumber,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    };
   }
 
   private async generateToken(userId: string): Promise<string> {
