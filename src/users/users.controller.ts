@@ -7,8 +7,6 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RoleGuard } from '../auth/guards/role.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
 import {
     ApiTags,
     ApiOperation,
@@ -26,9 +24,7 @@ export class UsersController {
     constructor(private readonly service: UsersService) { }
 
     @Get(':id')
-    @UseGuards(RoleGuard)
-    @Roles('ADMIN')
-    @ApiOperation({ summary: 'Get user profile with documents (admin only)' })
+    @ApiOperation({ summary: 'Get user profile with documents' })
     @ApiResponse({
         status: 200,
         description: 'User profile retrieved successfully',

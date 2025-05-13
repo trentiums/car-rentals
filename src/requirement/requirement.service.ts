@@ -285,41 +285,110 @@ export class RequirementService {
     return this.prisma.requirement.findMany({
       where: filters,
       orderBy: { createdAt: 'desc' },
+      include: {
+        postedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+          }
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+          }
+        }
+      },
     });
   }
 
-  async getAvailabeRequirements(userId: string,
+  async getAvailabeRequirements(
+    userId: string,
     status?: string,
     fromDate?: string,
     toDate?: string,
+    from?: string,
+    to?: string,
+    carTypes?: string | string[],
     page: number = 1,
-    limit: number = 10,) {
+    limit: number = 10,
+  ) {
     const filters: any = {
       isDeleted: false,
     };
 
+    const businessCities = await this.prisma.userBusinessCity.findMany({
+      where: {
+        userId,
+        isActive: true,
+      },
+    });
+
+    const cityNames = businessCities.map((bc) => bc.cityName);
+
     if (status) {
       filters.status = status.toUpperCase();
     }
+
+    // Handle carTypes - convert string to array if needed
+    let carTypeArray: string[] = [];
+    if (carTypes) {
+      if (typeof carTypes === 'string') {
+        carTypeArray = carTypes.split(',').map(type => type.trim());
+      } else {
+        carTypeArray = carTypes;
+      }
+    }
+
+    if (carTypeArray.length > 0) {
+      filters.carType = { in: carTypeArray };
+    }
+
+    // Filter by creation date
     if (fromDate || toDate) {
       filters.createdAt = {};
       if (fromDate) {
         filters.createdAt.gte = new Date(fromDate);
       }
       if (toDate) {
-        // Add time to include the full day
         filters.createdAt.lte = new Date(
           new Date(toDate).setHours(23, 59, 59, 999),
         );
       }
     }
+
+    // Filter by pickup date
+    if (from || to) {
+      filters.pickupDate = {};
+      if (from) {
+        filters.pickupDate.gte = new Date(from);
+      }
+      if (to) {
+        filters.pickupDate.lte = new Date(
+          new Date(to).setHours(23, 59, 59, 999),
+        );
+      }
+    }
+
     const whereConditions: any = {
       AND: [
         { isReturnTrip: true },
         filters,
       ],
-
+      OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
     };
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    const isUserIsVerified = user?.isVerified;
+
+    if (!isUserIsVerified) {
+      whereConditions.AND.push({ onlyVerified: false });
+    }
+
     const skip = (page - 1) * limit;
     const [requirements, total] = await Promise.all([
       this.prisma.requirement.findMany({
@@ -330,7 +399,14 @@ export class RequirementService {
               id: true,
               fullName: true,
               phoneNumber: true,
-              isVerified: true,
+              isVerified: isUserIsVerified ? true : false,
+            },
+          },
+          assignedTo: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
             },
           },
         },
@@ -342,6 +418,7 @@ export class RequirementService {
         where: whereConditions,
       }),
     ]);
+
     return {
       requirements,
       total,

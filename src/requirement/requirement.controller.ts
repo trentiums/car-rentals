@@ -181,11 +181,17 @@ export class RequirementController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'fromDate', required: false, type: String })
   @ApiQuery({ name: 'toDate', required: false, type: String })
+  @ApiQuery({ name: 'fromCity', required: false, type: String })
+  @ApiQuery({ name: 'toCity', required: false, type: String })
+  @ApiQuery({ name: 'carTypes', required: false, type: [String] })
   @ApiResponse({ status: 200, description: 'List returned successfully' })
   async getAvailableRequirements(@Req() req,
     @Query('status') status?: string,
     @Query('fromDate') fromDate?: string,
     @Query('toDate') toDate?: string,
+    @Query('fromCity') fromCity?: string,
+    @Query('toCity') toCity?: string,
+    @Query('carTypes') carTypes?: string[],
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,) {
     if (!req.user.id) {
@@ -196,6 +202,9 @@ export class RequirementController {
       status,
       fromDate,
       toDate,
+      fromCity,
+      toCity,
+      carTypes,
       page,
       limit,
     );

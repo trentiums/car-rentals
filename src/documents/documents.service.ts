@@ -262,4 +262,19 @@ export class DocumentsService {
 
     throw new BadRequestException('Invalid status provided');
   }
+
+  async isUserVerified(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { isVerified: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      isVerified: user.isVerified
+    };
+  }
 }

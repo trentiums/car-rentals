@@ -142,4 +142,16 @@ export class DocumentsController {
     const data = await this.service.reviewDocument(req.user.id, id, dto);
     return successResponse(data, 'Document reviewed successfully');
   }
+
+  @Get('is-verified')
+  @ApiOperation({ summary: 'Check if current user is verified' })
+  @ApiResponse({ status: 200, description: 'Returns user verification status' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async isUserVerified(@Req() req) {
+    if (!req.user.id) {
+      throw new UnauthorizedException('User not logged in');
+    }
+    const data = await this.service.isUserVerified(req.user.id);
+    return successResponse(data, 'Verification status retrieved successfully');
+  }
 }

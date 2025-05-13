@@ -8,7 +8,7 @@ import { AddBusinessCityDto } from './dto/add-business-city.dto';
 
 @Injectable()
 export class BusinessCitiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async addBusinessCity(dto: AddBusinessCityDto, userId: string) {
     // Check if user exists
@@ -108,7 +108,7 @@ export class BusinessCitiesService {
 
   async getRequirementsByBusinessCities(
     userId: string,
-    carTypes?: string[],
+    carTypes?: string | string[],
     pickupDateFrom?: string,
     pickupDateTo?: string,
     page: number = 1,
@@ -121,12 +121,19 @@ export class BusinessCitiesService {
       },
     });
 
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    const isUserIsVerified = user?.isVerified;
     const cityNames = businessCities.map((bc) => bc.cityName);
 
     const whereConditions: any = {
       AND: [
         { isDeleted: false },
-        { status: 'CREATED' },
+        {
+          status: { in: ['CREATED', 'ASSIGNED'] },
+        },
         {
           OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
         },
@@ -134,8 +141,18 @@ export class BusinessCitiesService {
       ],
     };
 
-    if (carTypes && carTypes.length > 0) {
-      whereConditions.AND.push({ carType: { in: carTypes } });
+    // Handle carTypes - convert string to array if needed
+    let carTypeArray: string[] = [];
+    if (carTypes) {
+      if (typeof carTypes === 'string') {
+        carTypeArray = carTypes.split(',').map(type => type.trim());
+      } else {
+        carTypeArray = carTypes;
+      }
+    }
+
+    if (carTypeArray.length > 0) {
+      whereConditions.AND.push({ carType: { in: carTypeArray } });
     }
 
     if (pickupDateFrom || pickupDateTo) {
@@ -147,6 +164,10 @@ export class BusinessCitiesService {
 
     const skip = (page - 1) * limit;
 
+    if (!isUserIsVerified) {
+      whereConditions.AND.push({ onlyVerified: false });
+    }
+
     const [requirements, total] = await Promise.all([
       this.prisma.requirement.findMany({
         where: whereConditions,
@@ -156,11 +177,20 @@ export class BusinessCitiesService {
               id: true,
               fullName: true,
               phoneNumber: true,
-              isVerified: true,
+            },
+          },
+          assignedTo: {
+            select: {
+              id: true,
+              fullName: true,
+              phoneNumber: true,
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [
+          { status: 'asc' },
+          { createdAt: 'desc' },
+        ],
         skip,
         take: limit,
       }),

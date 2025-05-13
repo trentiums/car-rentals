@@ -124,11 +124,6 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    // Check if user is verified
-    if (!user.isVerified) {
-      throw new ForbiddenException('Please complete your registration first');
-    }
-
     // Send OTP
     const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber, 'LOGIN');
 
@@ -197,12 +192,6 @@ export class AuthService {
     if (user.role !== Role.ADMIN) {
       throw new ForbiddenException('Access denied. Admin privileges required.');
     }
-
-    // Check if user is verified
-    if (!user.isVerified) {
-      throw new ForbiddenException('Please complete your registration first');
-    }
-
     // Send OTP
     const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber, 'LOGIN');
 
