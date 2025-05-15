@@ -4,12 +4,14 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { S3Service } from 'src/common/s3.service';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { NotificationService } from 'src/common/notification.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly s3Service: S3Service,
+    private readonly notificationService: NotificationService,
   ) {
     // Ensure uploads directory exists
     const uploadsDir = join(process.cwd(), 'uploads', 'posts');
@@ -42,7 +44,7 @@ export class PostsService {
       }
     }
 
-    return this.prisma.post.create({
+    const post = await this.prisma.post.create({
       data: {
         content: createPostDto.content,
         location: createPostDto.location,
@@ -61,9 +63,42 @@ export class PostsService {
         photos: true,
       },
     });
+
+    // Get all users except the post creator
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { not: userId },
+        isVerified: true, // Only notify verified users
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    const userIds = users.map(user => user.id);
+
+    if (userIds.length > 0) {
+      // Send notifications to all users
+      await this.notificationService.sendBulkPushNotifications(
+        userIds,
+        'New Post',
+        `${post.user.fullName} shared a new post${post.location ? ` from ${post.location}` : ''}`,
+        {
+          type: 'NEW_POST',
+          postId: post.id,
+          content: post.content,
+          location: post.location,
+          hasPhotos: post.photos.length > 0,
+          screenName: 'posts',
+          postedBy: post.user.fullName
+        }
+      );
+    }
+
+    return post;
   }
 
-  async getPosts(userId: number, page: number = 1, limit: number = 10) {
+  async getPosts(userId: string, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
 
     const [posts, total] = await Promise.all([

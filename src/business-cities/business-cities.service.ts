@@ -134,9 +134,9 @@ export class BusinessCitiesService {
         {
           status: { in: ['CREATED', 'ASSIGNED'] },
         },
-        {
-          OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
-        },
+        // {
+        //   OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
+        // },
         { NOT: { postedById: userId } },
       ],
     };

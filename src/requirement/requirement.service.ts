@@ -11,10 +11,14 @@ import {
 } from './dto/confirm-requirement.dto';
 import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
 import * as dayjs from 'dayjs';
+import { NotificationService } from 'src/common/notification.service';
 
 @Injectable()
 export class RequirementService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) { }
 
   async createRequirement(dto: CreateRequirementDto, userId: string) {
     const now = dayjs();
@@ -38,7 +42,7 @@ export class RequirementService {
       throw new NotFoundException('Car type not found');
     }
 
-    return this.prisma.requirement.create({
+    const requirement = await this.prisma.requirement.create({
       data: {
         postedById: userId,
         fromCity: dto.fromCity,
@@ -54,11 +58,59 @@ export class RequirementService {
         status: 'CREATED',
       },
     });
+
+    // Find users who have business in the fromCity or toCity
+    const relevantUsers = await this.prisma.userBusinessCity.findMany({
+      where: {
+        OR: [
+          { cityName: dto.fromCity },
+          { cityName: dto.toCity }
+        ],
+        isActive: true,
+        user: {
+          id: { not: userId }, // Exclude the creator
+          isVerified: dto.onlyVerified ? true : undefined, // Only verified users if required
+        }
+      },
+      select: {
+        userId: true
+      }
+    });
+
+    // Get unique user IDs
+    const userIds = [...new Set(relevantUsers.map(uc => uc.userId))];
+
+    if (userIds.length > 0) {
+      // Send notifications to relevant users
+      await this.notificationService.sendBulkPushNotifications(
+        userIds,
+        'New Requirement Available',
+        `New ${dto.tripType} trip requirement from ${dto.fromCity} to ${dto.toCity}`,
+        {
+          type: 'NEW_REQUIREMENT',
+          requirementId: requirement.id,
+          screenName: 'requirements',
+          fromCity: dto.fromCity,
+          toCity: dto.toCity,
+          pickupDate: dto.pickupDate,
+          carType: carType.name,
+        },
+      );
+    }
+
+    return requirement;
   }
 
   async confirmRequirement(dto: ConfirmRequirementDto, userId: string) {
     const requirement = await this.prisma.requirement.findUnique({
       where: { id: dto.requirementId },
+      include: {
+        postedBy: {
+          select: {
+            fullName: true
+          }
+        }
+      }
     });
 
     if (!requirement || requirement.isDeleted) {
@@ -68,16 +120,54 @@ export class RequirementService {
     if (requirement.postedById !== userId) {
       throw new BadRequestException('You cannot confirm this requirement');
     }
-    if (!requirement || requirement.isDeleted) {
-      throw new NotFoundException('Requirement not found');
-    }
 
-    return this.prisma.requirement.update({
+    const updatedRequirement = await this.prisma.requirement.update({
       where: { id: dto.requirementId },
       data: {
         status: 'CONFIRMED',
       },
     });
+
+    // Find users who have business in the fromCity or toCity
+    const relevantUsers = await this.prisma.userBusinessCity.findMany({
+      where: {
+        OR: [
+          { cityName: requirement.fromCity },
+          { cityName: requirement.toCity }
+        ],
+        isActive: true,
+        user: {
+          id: { not: userId }, // Exclude the creator
+          isVerified: requirement.onlyVerified ? true : undefined, // Only verified users if required
+        }
+      },
+      select: {
+        userId: true
+      }
+    });
+
+    // Get unique user IDs
+    const userIds = [...new Set(relevantUsers.map(uc => uc.userId))];
+
+    if (userIds.length > 0) {
+      // Send notifications to relevant users
+      await this.notificationService.sendBulkPushNotifications(
+        userIds,
+        'New Available Trip',
+        `${requirement.postedBy.fullName} has confirmed a ${requirement.tripType} trip from ${requirement.fromCity} to ${requirement.toCity}`,
+        {
+          type: 'AVAILABLE_TRIP',
+          requirementId: requirement.id,
+          fromCity: requirement.fromCity,
+          toCity: requirement.toCity,
+          pickupDate: requirement.pickupDate,
+          tripType: requirement.tripType,
+          postedBy: requirement.postedBy.fullName
+        }
+      );
+    }
+
+    return updatedRequirement;
   }
 
   async assignRequirement(dto: AssignRequirementDto, userId: string) {
@@ -196,6 +286,21 @@ export class RequirementService {
         );
       }
 
+      await this.notificationService.sendPushNotification(
+        originalRequirement.postedById,
+        'New Return Trip',
+        'A new return trip has been created',
+        {
+          type: 'NEW_RETURN_TRIP',
+          requirementId: originalRequirement.id,
+          fromCity: originalRequirement.fromCity,
+          toCity: originalRequirement.toCity,
+          pickupDate: originalRequirement.pickupDate,
+          tripType: originalRequirement.tripType,
+          screenName: 'available',
+        }
+      );
+
       // Create the return requirement based on original trip
       return this.prisma.requirement.create({
         data: {
@@ -248,6 +353,7 @@ export class RequirementService {
           isReturnTrip: true,
         },
       });
+
     }
   }
 
@@ -377,7 +483,7 @@ export class RequirementService {
         { isReturnTrip: true },
         filters,
       ],
-      OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
+      // OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
     };
 
     const user = await this.prisma.user.findUnique({

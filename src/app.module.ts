@@ -20,6 +20,9 @@ import { SettingsModule } from './settings/settings.module';
 import { WhatsAppModule } from './common/whatsapp.module';
 import { AdminModule } from './admin/admin.module';
 import { UsersModule } from './users/users.module';
+import { NotificationModule } from './common/notification.module';
+import { NotificationController } from './common/notification.controller';
+import { NotificationService } from './common/notification.service';
 
 @Module({
   imports: [
@@ -44,8 +47,10 @@ import { UsersModule } from './users/users.module';
     WhatsAppModule,
     AdminModule,
     UsersModule,
+    NotificationModule,
+
   ],
-  controllers: [AppController, RequirementController],
-  providers: [AppService, RequirementService],
+  controllers: [AppController, RequirementController, NotificationController],
+  providers: [AppService, RequirementService, NotificationService],
 })
 export class AppModule { }
