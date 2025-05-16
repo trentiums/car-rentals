@@ -172,7 +172,6 @@ export class PostsController {
     @Req() req,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    console.log(dto.existingPhotoIds, 'existingPhotoIds IN DTO', dto);
     const data = await this.postsService.editPost(dto, req.user.id, files, dto.existingPhotoIds);
     return successResponse(data, 'Post updated successfully');
   }

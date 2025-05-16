@@ -408,7 +408,6 @@ export class PostsService {
     files?: Express.Multer.File[],
     existingPhotoIds?: string[] | string
   ) {
-    console.log(existingPhotoIds, 'existingPhotoIds');
 
     const post = await this.prisma.post.findUnique({
       where: { id: dto.id },
@@ -451,8 +450,6 @@ export class PostsService {
         idsToKeep = [existingPhotoIds];
       }
     }
-
-    console.log(idsToKeep, 'idsToKeep');
 
     // ✅ Delete photos that are NOT in existingPhotoIds
     await this.prisma.postPhoto.deleteMany({
