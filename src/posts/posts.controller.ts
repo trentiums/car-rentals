@@ -27,6 +27,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { extname } from 'path';
 import { successResponse } from 'src/common/response.helper';
 import { join } from 'path';
+import { EditPostDto } from './dto/edit-post.dto';
 
 const storage = diskStorage({
   destination: (req, file, cb) => {
@@ -92,6 +93,18 @@ export class PostsController {
     return successResponse(data, 'Saved posts fetched successfully');
   }
 
+  @Get('my-posts')
+  @ApiOperation({ summary: 'Get current user posts' })
+  @ApiResponse({ status: 200, description: 'Return user posts' })
+  async getMyPosts(
+    @Req() req,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    const data = await this.postsService.getPostsByUser(req.user.id, page, limit);
+    return successResponse(data, 'Your posts fetched successfully');
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a post by id' })
   @ApiResponse({ status: 200, description: 'Return the post' })
@@ -144,6 +157,24 @@ export class PostsController {
   ) {
     const data = await this.postsService.getPostsByUser(userId, page, limit);
     return successResponse(data, 'User posts fetched successfully');
+  }
+
+
+
+  @Post('edit')
+  @UseInterceptors(FilesInterceptor('photos', 10, { storage }))
+  @ApiOperation({ summary: 'Edit a post' })
+  @ApiResponse({ status: 200, description: 'Post updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
+  @ApiResponse({ status: 404, description: 'Post not found' })
+  async editPost(
+    @Body() dto: EditPostDto,
+    @Req() req,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    console.log(dto.existingPhotoIds, 'existingPhotoIds IN DTO', dto);
+    const data = await this.postsService.editPost(dto, req.user.id, files, dto.existingPhotoIds);
+    return successResponse(data, 'Post updated successfully');
   }
 
 }

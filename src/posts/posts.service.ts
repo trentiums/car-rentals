@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { S3Service } from 'src/common/s3.service';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { NotificationService } from 'src/common/notification.service';
+import { EditPostDto } from './dto/edit-post.dto';
 
 @Injectable()
 export class PostsService {
@@ -400,5 +401,124 @@ export class PostsService {
       total: saves.length,
     };
   }
+
+  async editPost(
+    dto: EditPostDto,
+    userId: string,
+    files?: Express.Multer.File[],
+    existingPhotoIds?: string[] | string
+  ) {
+    console.log(existingPhotoIds, 'existingPhotoIds');
+
+    const post = await this.prisma.post.findUnique({
+      where: { id: dto.id },
+      include: {
+        user: {
+          select: { id: true, fullName: true },
+        },
+        photos: {
+          select: { id: true, name: true, type: true, url: true },
+        },
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    if (post.userId !== userId) {
+      throw new BadRequestException('You can only edit your own posts');
+    }
+
+    // ✅ Normalize existingPhotoIds to an array of strings (UUIDs)
+    let idsToKeep: string[] = [];
+
+    if (Array.isArray(existingPhotoIds)) {
+      if (existingPhotoIds.length === 1 && typeof existingPhotoIds[0] === 'string') {
+        try {
+          idsToKeep = JSON.parse(existingPhotoIds[0]);
+        } catch (err) {
+          console.error('Failed to parse existingPhotoIds[0]', err);
+        }
+      } else {
+        idsToKeep = existingPhotoIds;
+      }
+    } else if (typeof existingPhotoIds === 'string') {
+      try {
+        idsToKeep = JSON.parse(existingPhotoIds);
+      } catch (err) {
+        console.error('Failed to parse existingPhotoIds', err);
+        idsToKeep = [existingPhotoIds];
+      }
+    }
+
+    console.log(idsToKeep, 'idsToKeep');
+
+    // ✅ Delete photos that are NOT in existingPhotoIds
+    await this.prisma.postPhoto.deleteMany({
+      where: {
+        postId: dto.id,
+        ...(idsToKeep.length > 0 && {
+          id: {
+            notIn: idsToKeep,
+          },
+        }),
+      },
+    });
+
+    // ✅ Prepare new photos data
+    const photoData: {
+      url: string;
+      name: string;
+      type: string;
+    }[] = [];
+
+    if (files && files.length > 0) {
+      for (const file of files) {
+        const fileUrl = `http://localhost:3001/files/posts/${file.filename}`;
+        photoData.push({
+          url: fileUrl,
+          name: file.originalname,
+          type: file.mimetype,
+        });
+      }
+    }
+
+    // ✅ Update post with new data and photos
+    const updatedPost = await this.prisma.post.update({
+      where: { id: dto.id },
+      data: {
+        content: dto.content,
+        location: dto.location,
+        ...(photoData.length > 0 && {
+          photos: {
+            create: photoData,
+          },
+        }),
+      },
+      include: {
+        user: { select: { id: true, fullName: true } },
+        photos: { select: { id: true, name: true, type: true, url: true } },
+        likes: {
+          where: { userId: String(userId) },
+          select: { id: true },
+        },
+        saves: {
+          where: { userId: String(userId) },
+          select: { id: true },
+        },
+        _count: {
+          select: { likes: true, shares: true },
+        },
+      },
+    });
+
+    return {
+      ...updatedPost,
+      hasLiked: updatedPost.likes.length > 0,
+      hasSaved: updatedPost.saves.length > 0,
+    };
+  }
+
 
 }

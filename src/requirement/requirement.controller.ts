@@ -28,6 +28,8 @@ import {
 import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
 import { BusinessCitiesService } from 'src/business-cities/business-cities.service';
 import { successResponse } from 'src/common/response.helper';
+import { EditRequirementDto } from './dto/edit-requirement.dto';
+import { EditReturnRequirementDto } from './dto/edit-return-requirement.dto';
 
 @ApiBearerAuth()
 @ApiTags('requirement')
@@ -209,5 +211,31 @@ export class RequirementController {
       limit,
     );
     return successResponse(data, 'Available requirements fetched successfully');
+  }
+
+  @Post('edit')
+  @ApiOperation({ summary: 'Edit an existing requirement' })
+  @ApiResponse({ status: 200, description: 'Requirement updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
+  @ApiResponse({ status: 404, description: 'Requirement not found' })
+  async edit(@Body() dto: EditRequirementDto, @Req() req) {
+    if (!req.user.id) {
+      throw new UnauthorizedException('User not logged in');
+    }
+    const data = await this.service.editRequirement(dto, req.user.id);
+    return successResponse(data, 'Requirement updated successfully');
+  }
+
+  @Post('edit-return')
+  @ApiOperation({ summary: 'Edit an existing return trip requirement' })
+  @ApiResponse({ status: 200, description: 'Return trip requirement updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or validation failed' })
+  @ApiResponse({ status: 404, description: 'Return trip requirement not found' })
+  async editReturn(@Body() dto: EditReturnRequirementDto, @Req() req) {
+    if (!req.user.id) {
+      throw new UnauthorizedException('User not logged in');
+    }
+    const data = await this.service.editReturnRequirement(dto, req.user.id);
+    return successResponse(data, 'Return trip requirement updated successfully');
   }
 }

@@ -12,6 +12,8 @@ import {
 import { CreateReturnRequirementDto } from './dto/create-return-requirement.dto';
 import * as dayjs from 'dayjs';
 import { NotificationService } from 'src/common/notification.service';
+import { EditRequirementDto } from './dto/edit-requirement.dto';
+import { EditReturnRequirementDto } from './dto/edit-return-requirement.dto';
 
 @Injectable()
 export class RequirementService {
@@ -532,6 +534,179 @@ export class RequirementService {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  }
+
+  async editRequirement(dto: EditRequirementDto, userId: string) {
+    const requirement = await this.prisma.requirement.findUnique({
+      where: { id: dto.id },
+    });
+
+    if (!requirement || requirement.isDeleted) {
+      throw new NotFoundException('Requirement not found');
+    }
+
+    if (requirement.postedById !== userId) {
+      throw new BadRequestException('You can only edit your own requirements');
+    }
+
+    if (requirement.status !== 'CREATED') {
+      throw new BadRequestException('You can only edit requirements in CREATED status');
+    }
+
+    // Validate pickup date if provided
+    if (dto.pickupDate) {
+      const now = dayjs();
+      const pickupDate = dayjs(dto.pickupDate).startOf('day');
+      if (pickupDate.isBefore(now.startOf('day'))) {
+        throw new BadRequestException('Pickup date cannot be in the past');
+      }
+      if (pickupDate.isSame(now, 'day')) {
+        const pickupTime = dto.pickupTime || requirement.pickupTime;
+        const pickupDateTime = dayjs(
+          `${pickupDate.format('YYYY-MM-DD')}T${pickupTime}`,
+        );
+        if (pickupDateTime.isBefore(now)) {
+          throw new BadRequestException('Pickup time must be in the future');
+        }
+      }
+    }
+
+    // Validate car type if provided
+    if (dto.carType) {
+      const carType = await this.prisma.carType.findFirst({
+        where: { id: dto.carType },
+      });
+
+      if (!carType) {
+        throw new NotFoundException('Car type not found');
+      }
+    }
+
+    const updatedRequirement = await this.prisma.requirement.update({
+      where: { id: dto.id },
+      data: {
+        fromCity: dto.fromCity,
+        toCity: dto.toCity,
+        pickupDate: dto.pickupDate,
+        pickupTime: dto.pickupTime,
+        carType: dto.carType,
+        budget: dto.budget,
+        onlyVerified: dto.onlyVerified,
+        comment: dto.comment,
+      },
+    });
+
+    return updatedRequirement;
+  }
+
+  async editReturnRequirement(dto: EditReturnRequirementDto, userId: string) {
+    const requirement = await this.prisma.requirement.findUnique({
+      where: { id: dto.id },
+      include: {
+        postedBy: {
+          select: {
+            fullName: true
+          }
+        }
+      }
+    });
+
+    if (!requirement || requirement.isDeleted) {
+      throw new NotFoundException('Requirement not found');
+    }
+
+    if (!requirement.isReturnTrip) {
+      throw new BadRequestException('This is not a return trip requirement');
+    }
+
+    if (requirement.postedById !== userId) {
+      throw new BadRequestException('You can only edit your own return trip requirements');
+    }
+
+    if (requirement.status !== 'CREATED') {
+      throw new BadRequestException('You can only edit return trip requirements in CREATED status');
+    }
+
+    // Validate pickup date if provided
+    if (dto.returnPickupDate) {
+      const now = dayjs();
+      const pickupDate = dayjs(dto.returnPickupDate).startOf('day');
+      if (pickupDate.isBefore(now.startOf('day'))) {
+        throw new BadRequestException('Pickup date cannot be in the past');
+      }
+      if (pickupDate.isSame(now, 'day')) {
+        const pickupTime = dto.returnPickupTime || requirement.pickupTime;
+        const pickupDateTime = dayjs(
+          `${pickupDate.format('YYYY-MM-DD')}T${pickupTime}`,
+        );
+        if (pickupDateTime.isBefore(now)) {
+          throw new BadRequestException('Pickup time must be in the future');
+        }
+      }
+    }
+
+    const updatedRequirement = await this.prisma.requirement.update({
+      where: { id: dto.id },
+      data: {
+        fromCity: dto.fromCity,
+        toCity: dto.toCity,
+        pickupDate: dto.returnPickupDate,
+        pickupTime: dto.returnPickupTime,
+        budget: dto.returnBudget,
+        onlyVerified: dto.onlyVerified,
+        comment: dto.comment,
+      },
+      include: {
+        postedBy: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+          }
+        },
+        assignedTo: {
+          select: {
+            id: true,
+            fullName: true,
+            phoneNumber: true,
+          }
+        }
+      }
+    });
+
+    // If the requirement is linked to an original trip, notify the original trip creator
+    if (requirement.returnTripId) {
+      const originalRequirement = await this.prisma.requirement.findUnique({
+        where: { id: requirement.returnTripId },
+        include: {
+          postedBy: {
+            select: {
+              id: true,
+              fullName: true
+            }
+          }
+        }
+      });
+
+      if (originalRequirement && originalRequirement.postedById !== userId) {
+        await this.notificationService.sendPushNotification(
+          originalRequirement.postedById,
+          'Return Trip Updated',
+          `${requirement.postedBy.fullName} has updated the return trip details${dto.fromCity || dto.toCity ? ` (${dto.fromCity || requirement.fromCity} to ${dto.toCity || requirement.toCity})` : ''}`,
+          {
+            type: 'RETURN_TRIP_UPDATED',
+            requirementId: requirement.id,
+            originalRequirementId: originalRequirement.id,
+            fromCity: dto.fromCity || requirement.fromCity,
+            toCity: dto.toCity || requirement.toCity,
+            pickupDate: dto.returnPickupDate || requirement.pickupDate,
+            screenName: 'requirements'
+          }
+        );
+      }
+    }
+
+    return updatedRequirement;
   }
 
 }
