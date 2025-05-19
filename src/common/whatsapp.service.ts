@@ -21,7 +21,7 @@ export class WhatsAppService {
         this.apiUrl = this.configService.get<string>('WHATSAPP_API_URI')!;
     }
 
-    async sendOtp(phoneNumber: string, purpose: string = 'VERIFICATION') {
+    async sendOtp(phoneNumber: string) {
         // Generate OTP
         const otp = this.generateOtp();
 
@@ -30,14 +30,13 @@ export class WhatsAppService {
             data: {
                 phoneNumber,
                 otp,
-                purpose,
-                expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes expiry
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000),
             },
         });
 
         try {
             // Send OTP via WhatsApp
-            const response = await this.sendWhatsAppMessage(phoneNumber, otp);
+            await this.sendWhatsAppMessage(phoneNumber, otp);
             return {
                 sessionId: otpRecord.id,
                 message: 'OTP sent successfully',
@@ -51,12 +50,11 @@ export class WhatsAppService {
         }
     }
 
-    async verifyOtp(phoneNumber: string, otp: string, purpose: string = 'VERIFICATION') {
+    async verifyOtp(phoneNumber: string, otp: string) {
         // Find the most recent unverified OTP for this phone number and purpose
         const otpRecord = await this.prisma.whatsAppOtp.findFirst({
             where: {
                 phoneNumber,
-                purpose,
                 verified: false,
                 expiresAt: {
                     gt: new Date(),

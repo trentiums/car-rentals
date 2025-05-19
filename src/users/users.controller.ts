@@ -4,6 +4,7 @@ import {
     Param,
     UseGuards,
     UnauthorizedException,
+    Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,19 +24,34 @@ import { successResponse } from '../common/response.helper';
 export class UsersController {
     constructor(private readonly service: UsersService) { }
 
+    @Get()
+    @ApiOperation({ summary: 'Get current user profile' })
+    @ApiResponse({
+        status: 200,
+        description: 'Current user profile retrieved successfully',
+        type: UserProfileDto,
+    })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    async getCurrentUserProfile(@Req() req: any) {
+        const userId = req.user?.id;
+        if (!userId) {
+            throw new UnauthorizedException('User ID is required');
+        }
+
+        const data = await this.service.getUserProfile(userId);
+        return successResponse(data, 'User profile retrieved successfully');
+    }
+
     @Get(':id')
-    @ApiOperation({ summary: 'Get user profile with documents' })
+    @ApiOperation({ summary: 'Get user profile by ID' })
     @ApiResponse({
         status: 200,
         description: 'User profile retrieved successfully',
         type: UserProfileDto,
     })
     @ApiResponse({ status: 404, description: 'User not found' })
-    async getUserProfile(@Param('id') userId: string) {
-        if (!userId) {
-            throw new UnauthorizedException('User ID is required');
-        }
+    async getUserProfileById(@Param('id') userId: string) {
         const data = await this.service.getUserProfile(userId);
         return successResponse(data, 'User profile retrieved successfully');
     }
-} 
+}

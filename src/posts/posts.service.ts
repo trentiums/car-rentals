@@ -330,16 +330,50 @@ export class PostsService {
               fullName: true,
             },
           },
-          photos: true,
+          photos: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              url: true
+            },
+          },
+          likes: {
+            where: {
+              userId: String(userId),
+            },
+            select: {
+              id: true,
+            },
+          },
+          saves: {
+            where: {
+              userId: String(userId),
+            },
+            select: {
+              id: true,
+            },
+          },
+          _count: {
+            select: {
+              likes: true,
+              shares: true,
+            },
+          },
         },
       }),
       this.prisma.post.count({
         where: { userId, isActive: true },
       }),
     ]);
+    const postsWithStatus = posts.map((post) => ({
+      ...post,
+      hasLiked: post.likes.length > 0,
+      hasSaved: post.saves.length > 0,
+    }));
 
     return {
-      posts,
+      posts: postsWithStatus,
       total,
       page,
       limit,

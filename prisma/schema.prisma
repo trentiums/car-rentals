@@ -274,7 +274,7 @@ model WhatsAppOtp {
   id        String   @id @default(uuid()) @db.VarChar(64)
   phoneNumber String @db.VarChar(64)
   otp       String   @db.VarChar(64)
-  purpose   String   @db.VarChar(64)
+  purpose   String?   @db.VarChar(64)
   verified  Boolean  @default(false)
   expiresAt DateTime
   createdAt DateTime @default(now())

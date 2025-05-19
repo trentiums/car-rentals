@@ -45,7 +45,7 @@ export class AuthService {
     }
 
     // Send OTP
-    const otpResponse = await this.whatsAppService.sendOtp(registerDto.phoneNumber, 'REGISTRATION');
+    const otpResponse = await this.whatsAppService.sendOtp(registerDto.phoneNumber);
 
     // Create unverified user
     const user = await this.prisma.user.create({
@@ -71,7 +71,6 @@ export class AuthService {
     await this.whatsAppService.verifyOtp(
       verifyDto.phoneNumber,
       verifyDto.otp,
-      'REGISTRATION'
     );
 
     // Get user with their city and state
@@ -86,7 +85,7 @@ export class AuthService {
     // Mark user as verified
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { isVerified: true },
+      data: { isVerified: false },
     });
 
     // Add user's city as a business city
@@ -125,7 +124,7 @@ export class AuthService {
     }
 
     // Send OTP
-    const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber, 'LOGIN');
+    const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber);
 
     return { sessionId: otpResponse.sessionId };
   }
@@ -135,7 +134,6 @@ export class AuthService {
     await this.whatsAppService.verifyOtp(
       verifyDto.phoneNumber,
       verifyDto.otp,
-      'LOGIN'
     );
 
     // Get user
@@ -171,9 +169,7 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-
-    const purpose = user.isVerified ? 'LOGIN' : 'REGISTRATION';
-    const otpResponse = await this.whatsAppService.sendOtp(phoneNumber, purpose);
+    const otpResponse = await this.whatsAppService.sendOtp(phoneNumber);
 
     return { sessionId: otpResponse.sessionId };
   }
@@ -193,7 +189,7 @@ export class AuthService {
       throw new ForbiddenException('Access denied. Admin privileges required.');
     }
     // Send OTP
-    const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber, 'LOGIN');
+    const otpResponse = await this.whatsAppService.sendOtp(loginDto.phoneNumber);
 
     return { sessionId: otpResponse.sessionId };
   }
@@ -203,7 +199,6 @@ export class AuthService {
     await this.whatsAppService.verifyOtp(
       verifyDto.phoneNumber,
       verifyDto.otp,
-      'LOGIN'
     );
 
     // Get user

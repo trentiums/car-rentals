@@ -203,6 +203,20 @@ export class RequirementService {
       );
     }
 
+    await this.notificationService.sendPushNotification(
+      user.id,
+      'New Requirement Assigned',
+      'You have been assigned a new requirement',
+      {
+        type: 'NEW_REQUIREMENT',
+        requirementId: requirement.id,
+        fromCity: requirement.fromCity,
+        toCity: requirement.toCity,
+        pickupDate: requirement.pickupDate,
+        tripType: requirement.tripType,
+        screenName: 'requirements',
+      },
+    );
     return this.prisma.requirement.update({
       where: { id: dto.requirementId },
       data: {
@@ -471,12 +485,10 @@ export class RequirementService {
     if (from || to) {
       filters.pickupDate = {};
       if (from) {
-        filters.pickupDate.gte = new Date(from);
+        filters.fromCity = from;
       }
       if (to) {
-        filters.pickupDate.lte = new Date(
-          new Date(to).setHours(23, 59, 59, 999),
-        );
+        filters.toCity = to;
       }
     }
 
@@ -485,7 +497,7 @@ export class RequirementService {
         { isReturnTrip: true },
         filters,
       ],
-      // OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
+      OR: [{ fromCity: { in: cityNames } }, { toCity: { in: cityNames } }],
     };
 
     const user = await this.prisma.user.findUnique({
@@ -495,6 +507,10 @@ export class RequirementService {
 
     if (!isUserIsVerified) {
       whereConditions.AND.push({ onlyVerified: false });
+    }
+
+    if (userId) {
+      whereConditions.AND.push({ NOT: { postedById: userId } });
     }
 
     const skip = (page - 1) * limit;

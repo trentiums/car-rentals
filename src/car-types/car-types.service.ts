@@ -8,7 +8,7 @@ import { CreateCarTypeDto, UpdateCarTypeDto } from './dto/car-type.dto';
 
 @Injectable()
 export class CarTypesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createCarTypeDto: CreateCarTypeDto) {
     try {
