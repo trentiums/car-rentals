@@ -29,7 +29,8 @@ export class WhatsAppService {
         const otpRecord = await this.prisma.whatsAppOtp.create({
             data: {
                 phoneNumber,
-                otp,
+                // TODO: Remove this after testing
+                otp: "123456",
                 expiresAt: new Date(Date.now() + 10 * 60 * 1000),
             },
         });
